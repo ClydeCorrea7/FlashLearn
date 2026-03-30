@@ -1,7 +1,7 @@
 // Database Operations for FlashLearn App
 // CRUD operations for decks, cards, and user progress
 
-import { supabase, type Deck, type Card, type UserProgress, type DeckWithCards, type DeckStats } from './client';
+import { supabase, type Deck, type Card, type UserProgress, type DeckWithCards, type DeckStats, type LearningMode, type MCQOption } from './client';
 import { projectId, publicAnonKey } from './info';
 
 // ============================================
@@ -40,6 +40,7 @@ export async function getDecks(): Promise<DeckStats[]> {
       card_count,
       mastered_count,
       last_studied,
+      preferred_mode,
       created_at,
       updated_at
     `)
@@ -51,14 +52,27 @@ export async function getDecks(): Promise<DeckStats[]> {
     throw new Error(error.message);
   }
 
-  return data.map(deck => ({
-    id: deck.id,
-    title: deck.title,
-    description: deck.description,
-    cardCount: deck.card_count || 0,
-    masteredCount: deck.mastered_count || 0,
-    lastStudied: deck.last_studied
+  // Fetch due counts for each deck
+  const decksWithDueCounts = await Promise.all(data.map(async (deck) => {
+    const { count } = await supabase
+      .from('cards')
+      .select('*', { count: 'exact', head: true })
+      .eq('deck_id', deck.id)
+      .or(`next_review_due.lte.${new Date().toISOString()},next_review_due.is.null`);
+    
+    return {
+      id: deck.id,
+      title: deck.title,
+      description: deck.description,
+      cardCount: deck.card_count || 0,
+      masteredCount: deck.mastered_count || 0,
+      lastStudied: deck.last_studied,
+      preferredMode: deck.preferred_mode || 'static',
+      dueCount: count || 0
+    };
   }));
+
+  return decksWithDueCounts;
 }
 
 /**
@@ -106,7 +120,8 @@ export async function getDeck(deckId: string): Promise<DeckWithCards | null> {
 export async function createDeck(
   title: string,
   description?: string,
-  cards?: { front: string; back: string }[]
+  cards?: { front: string; back: string }[],
+  preferredMode: LearningMode = 'static'
 ): Promise<Deck> {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Not authenticated');
@@ -120,7 +135,8 @@ export async function createDeck(
       description: description || null,
       card_count: cards?.length || 0,
       mastered_count: 0,
-      last_studied: null
+      last_studied: null,
+      preferred_mode: preferredMode
     })
     .select()
     .single();
@@ -158,7 +174,7 @@ export async function createDeck(
  */
 export async function updateDeck(
   deckId: string,
-  updates: { title?: string; description?: string }
+  updates: { title?: string; description?: string; preferred_mode?: LearningMode }
 ): Promise<Deck> {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Not authenticated');
@@ -167,7 +183,8 @@ export async function updateDeck(
     .from('decks')
     .update({
       title: updates.title,
-      description: updates.description
+      description: updates.description,
+      preferred_mode: updates.preferred_mode
     })
     .eq('id', deckId)
     .eq('user_id', userId)
@@ -453,12 +470,124 @@ export async function updateStudyProgress(
     .select()
     .single();
 
-  if (error) {
-    console.error('Error updating progress:', error);
-    throw new Error(error.message);
-  }
-
   return data;
+}
+
+/**
+ * Log a card attempt and update its strength score using adaptive logic.
+ */
+export async function logCardAttempt(
+  cardId: string,
+  isCorrect: boolean,
+  responseTime: number,
+  confidence: 'easy' | 'medium' | 'hard',
+  mode: LearningMode
+): Promise<Card> {
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error('Not authenticated');
+
+  // 1. Insert attempt log
+  await supabase.from('card_attempts').insert({
+    card_id: cardId,
+    user_id: userId,
+    is_correct: isCorrect,
+    response_time: responseTime,
+    confidence,
+    mode
+  });
+
+  // 2. Fetch current metrics
+  const { data: card } = await supabase
+    .from('cards')
+    .select('total_attempts, correct_attempts, strength_score')
+    .eq('id', cardId)
+    .single();
+
+  if (!card) throw new Error('Card not found');
+
+  const newTotal = (card.total_attempts || 0) + 1;
+  const newCorrect = (card.correct_attempts || 0) + (isCorrect ? 1 : 0);
+
+  // 3. Compute new Strength Score
+  // Algorithm: CSS = (Accuracy * 0.6) + (Confidence * 0.2) + (Speed * 0.2)
+  const accuracy = newCorrect / newTotal;
+  
+  const confidenceValues = { easy: 1.0, medium: 0.5, hard: 0.2 };
+  const confFactor = confidenceValues[confidence];
+
+  const maxExpectedTime = 15000; // 15 seconds
+  const speedFactor = Math.max(0, 1 - Math.min(responseTime / maxExpectedTime, 1));
+
+  const css = (accuracy * 0.6) + (confFactor * 0.2) + (speedFactor * 0.2);
+
+  // 4. Determine next review (Simplified Spaced Repetition)
+  let nextIntervalDays = 0;
+  if (isCorrect) {
+    const baseInterval = confidence === 'easy' ? 4 : confidence === 'medium' ? 2 : 1;
+    nextIntervalDays = baseInterval * (1 + css);
+  }
+  
+  const nextReviewDue = new Date();
+  nextReviewDue.setHours(nextReviewDue.getHours() + (nextIntervalDays * 24));
+
+  const { data, error } = await supabase
+    .from('cards')
+    .update({
+      total_attempts: newTotal,
+      correct_attempts: newCorrect,
+      strength_score: css,
+      last_reviewed: new Date().toISOString(),
+      next_review_due: nextReviewDue.toISOString(),
+      mastered: css >= 0.85
+    })
+    .eq('id', cardId)
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Generate MCQ distractors for a card using AI Edge Function
+ */
+export async function generateMCQOptions(card: Card): Promise<MCQOption[]> {
+  try {
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/generate-mcq`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'apikey': publicAnonKey
+        },
+        body: JSON.stringify({ card })
+      }
+    );
+
+    if (!response.ok) throw new Error('AI failed');
+
+    const data = await response.json();
+    const distractors: string[] = data.distractors;
+
+    const options: MCQOption[] = [
+      { text: card.back, isCorrect: true },
+      ...distractors.map(d => ({ text: d, isCorrect: false }))
+    ];
+
+    // Shuffle options
+    return options.sort(() => Math.random() - 0.5);
+  } catch (error) {
+    console.error('MCQ generation failed:', error);
+    // Fallback: simple distractors if AI fails
+    const fallbacks = ["Incorrect answer A", "Incorrect answer B", "Incorrect answer C"];
+    const options = [
+      { text: card.back, isCorrect: true },
+      ...fallbacks.map(d => ({ text: d, isCorrect: false }))
+    ];
+    return options.sort(() => Math.random() - 0.5);
+  }
 }
 
 /**
@@ -505,7 +634,7 @@ export async function syncUserProgress(): Promise<UserProgress> {
  */
 export async function addCards(
   deckId: string,
-  cards: { front: string; back: string }[]
+  cards: { front: string; back: string; mastered?: boolean }[]
 ): Promise<Card[]> {
   if (cards.length === 0) return [];
 
@@ -513,7 +642,7 @@ export async function addCards(
     deck_id: deckId,
     front: card.front,
     back: card.back,
-    mastered: false
+    mastered: card.mastered ?? false
   }));
 
   const { data, error } = await supabase
@@ -534,7 +663,7 @@ export async function addCards(
  */
 export async function replaceCards(
   deckId: string,
-  cards: { front: string; back: string }[]
+  cards: { front: string; back: string; mastered?: boolean }[]
 ): Promise<Card[]> {
   // Delete existing cards
   await supabase.from('cards').delete().eq('deck_id', deckId);
@@ -549,56 +678,83 @@ export async function replaceCards(
 
 /**
  * Delete user account and all associated data
- * This deletes: user_progress, decks (triggers CASCADE delete for cards)
- * Then calls server endpoint to delete auth user
+ * This is a two-step process: 
+ * 1. Wipe all local/database records in public schema
+ * 2. Invoke the Edge Function to wipe Auth user and any hidden metadata/KV data (if purgeEverything is true)
  */
-export async function deleteUserAccount(): Promise<void> {
+export async function deleteUserAccount(purgeEverything: boolean = true): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Not authenticated');
 
   const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65`;
-
-  // First, delete all user data from the database
-  // Delete user_progress first (has FK to auth.users)
-  const { error: progressError } = await supabase
-    .from('user_progress')
-    .delete()
-    .eq('user_id', userId);
-
-  if (progressError) {
-    console.error('Error deleting user progress:', progressError);
-    // Continue anyway - the user wants to delete their account
-  }
-
-  // Delete all user's decks (cards will be deleted via CASCADE)
-  const { error: decksError } = await supabase
-    .from('decks')
-    .delete()
-    .eq('user_id', userId);
-
-  if (decksError) {
-    console.error('Error deleting decks:', decksError);
-    // Continue anyway - the user wants to delete their account
-  }
-
-  // Finally, delete the auth user via server endpoint
   const accessToken = (await getCurrentSession())?.access_token;
+
   if (!accessToken) {
-    throw new Error('No access token available');
+    throw new Error('Access token required for security clearance');
   }
 
-  const response = await fetch(`${API_BASE}/auth/account`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
+  console.log('[Operations] Initiating multi-stage account purge sequence...');
 
-  const data = await response.json();
-  if (!response.ok) {
-    console.error('Error deleting auth account:', data);
-    throw new Error(data.error || 'Failed to delete account');
+  try {
+    // 1. Client-side database purging (Fast path)
+    // Deleting from user_progress and decks first
+    const [progressResult, decksResult] = await Promise.all([
+      supabase.from('user_progress').delete().eq('user_id', userId),
+      supabase.from('decks').delete().eq('user_id', userId)
+    ]);
+
+    if (progressResult.error) console.warn('[Purge] Progress wipe failed partially:', progressResult.error);
+    if (decksResult.error) console.warn('[Purge] Decks wipe failed partially:', decksResult.error);
+
+    // 2. Server-side Authority purging (Admin path)
+    // Only required for full account deletion
+    if (purgeEverything) {
+      console.log('[Operations] Invoking remote purge via manual protocol (AI-aligned)...');
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/auth/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'apikey': publicAnonKey,
+            'x-purge-token': accessToken, // Pass user identity in custom header
+            'x-client-info': 'flashlearn-client'
+          },
+          body: JSON.stringify({
+            userId,
+            reason: 'User-initiated terminal purge',
+            timestamp: new Date().toISOString()
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Handshake Terminal Error' }));
+        console.error('[Operations] Remote handshake failed:', {
+          status: response.status,
+          error: errorData.error,
+          details: errorData.details,
+          full: errorData
+        });
+
+        const message = errorData.error
+          ? `Security: ${errorData.error} (${errorData.details || 'No trace'})`
+          : 'Security: Zero Handshake Terminal Error';
+
+        throw new Error(message);
+      }
+
+      console.log('[Operations] Remote purge successful.');
+    }
+
+    console.log(`[Operations] ${purgeEverything ? 'Account purge' : 'Data wipe'} successful.`);
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('Deletion request timed out. The server is overloaded, but data may still be scrubbing.');
+    }
+    throw err;
   }
 }
 

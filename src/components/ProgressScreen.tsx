@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { AnimatedCard } from './AnimatedCard';
 import { ArrowLeft, TrendingUp, Clock, Target, Flame, Brain, Zap } from 'lucide-react';
+import { cn } from './ui/utils';
 
 interface Deck {
   id: string;
@@ -30,25 +31,25 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
   const totalCards = userProgress?.total_cards || decks.reduce((sum, deck) => sum + deck.cardCount, 0);
   const totalMastered = userProgress?.mastered_cards || decks.reduce((sum, deck) => sum + deck.masteredCount, 0);
   const overallProgress = totalCards > 0 ? (totalMastered / totalCards) * 100 : 0;
-  
+
   const currentStreak = userProgress?.current_streak || 0;
   const longestStreak = userProgress?.longest_streak || 0;
-  
+
   // Calculate days learning (mock for now)
-  const daysLearning = userProgress?.last_study_date 
+  const daysLearning = userProgress?.last_study_date
     ? Math.max(1, Math.floor((Date.now() - new Date(userProgress.last_study_date).getTime()) / (1000 * 60 * 60 * 24))) + currentStreak
     : currentStreak > 0 ? currentStreak : 0;
 
-  // Mobile-optimized circular progress component
-  const CircularProgress = ({ 
-    percentage, 
-    size = 120, 
-    strokeWidth = 8, 
+  // High-fidelity neural circular progress component
+  const CircularProgress = ({
+    percentage,
+    size = 120,
+    strokeWidth = 8,
     showPercentage = true,
     className = ""
-  }: { 
-    percentage: number, 
-    size?: number, 
+  }: {
+    percentage: number,
+    size?: number,
     strokeWidth?: number,
     showPercentage?: boolean,
     className?: string
@@ -58,78 +59,116 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
     const offset = circumference - (percentage / 100) * circumference;
 
     return (
-      <motion.div 
+      <motion.div
         className={`relative inline-block ${className}`}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
       >
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background circle */}
+          <defs>
+            <linearGradient id="neural-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#00d2ff" />
+              <stop offset="50%" stopColor="#3a7bd5" />
+              <stop offset="100%" stopColor="#8b5cf6" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Orbital path */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius + 4}
+            stroke="rgba(255,255,255,0.03)"
+            strokeWidth="1"
+            fill="none"
+          />
+
+          {/* Background track */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="rgba(30, 40, 60, 0.8)"
+            stroke="rgba(255,255,255,0.05)"
             strokeWidth={strokeWidth}
-            fill="none"
+            fill="rgba(0,0,0,0.2)"
           />
-          {/* Progress circle */}
+
+          {/* Main progress arc */}
           <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="url(#gradient)"
+            stroke="url(#neural-gradient)"
             strokeWidth={strokeWidth}
             fill="none"
             strokeDasharray={circumference}
             strokeDashoffset={circumference}
             strokeLinecap="round"
-            className="transition-all duration-1000 ease-out"
+            filter="url(#glow)"
             animate={{
               strokeDashoffset: offset,
             }}
-            transition={{ delay: 0.5, duration: 1.5, ease: "easeInOut" }}
+            transition={{ delay: 0.3, duration: 2, ease: "circOut" }}
           />
-          {/* Gradient definition */}
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="var(--neon-blue)" />
-              <stop offset="100%" stopColor="var(--neon-purple)" />
-            </linearGradient>
-          </defs>
-        </svg>
-        {showPercentage && (
-          <motion.div 
-            className="absolute inset-0 flex items-center justify-center"
+
+          {/* Inner pulsating node */}
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius - strokeWidth - 4}
+            fill="url(#neural-gradient)"
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.5 }}
-          >
-            <span className={`${size < 80 ? 'text-xs' : size < 120 ? 'text-sm' : 'text-lg sm:text-xl'} text-white font-mono`}>
-              {Math.round(percentage)}%
-            </span>
-          </motion.div>
-        )}
-        
-        {/* Mobile: Add glow effect */}
-        {size >= 100 && (
-          <motion.div
-            className="absolute inset-0 rounded-full"
             animate={{
-              boxShadow: [
-                "0 0 20px rgba(59, 130, 246, 0.3)",
-                "0 0 30px rgba(139, 92, 246, 0.4)",
-                "0 0 20px rgba(59, 130, 246, 0.3)",
-              ],
+              opacity: [0.05, 0.15, 0.05],
+              scale: [0.95, 1.05, 0.95]
             }}
             transition={{
-              duration: 2,
+              duration: 3,
               repeat: Infinity,
-              ease: "easeInOut",
+              ease: "easeInOut"
             }}
           />
+        </svg>
+
+        {/* Dynamic percentage label */}
+        {showPercentage && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              className="flex flex-col items-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1 }}
+            >
+              <span className={cn(
+                "text-white font-bold tracking-tight",
+                size < 100 ? "text-sm" : "text-3xl"
+              )}>
+                {Math.round(percentage)}
+                <span className="text-xs opacity-40 ml-0.5">%</span>
+              </span>
+              {size >= 120 && (
+                <span className="text-[8px] text-[var(--neon-blue)] font-bold uppercase tracking-[0.2em] mt-1 opacity-60">
+                  Mastery
+                </span>
+              )}
+            </motion.div>
+          </div>
         )}
+
+        {/* Orbital Node Animation */}
+        <motion.div
+          className="absolute top-1/2 left-1/2 w-full h-full pointer-events-none"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          style={{ margin: `-${size / 2}px 0 0 -${size / 2}px` }}
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white shadow-[0_0_8px_#fff]" />
+        </motion.div>
       </motion.div>
     );
   };
@@ -138,13 +177,13 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
     <div className="min-h-screen bg-background overflow-auto">
       <div className="max-w-4xl mx-auto p-4 pb-24">
         {/* Header */}
-        <motion.div 
+        <motion.div
           className="flex items-center gap-3 mb-6"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <motion.button 
+          <motion.button
             onClick={onBack}
             className="p-3 rounded-xl hover:bg-secondary/50 transition-colors touch-manipulation"
             whileTap={{ scale: 0.9 }}
@@ -163,8 +202,8 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <AnimatedCard 
-            variant="cyber" 
+          <AnimatedCard
+            variant="cyber"
             className="p-4 sm:p-8 mb-6 text-center"
             glowing={true}
             delay={0.2}
@@ -174,16 +213,16 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               <h2 className="text-sm sm:text-base text-white">Overall Mastery</h2>
             </div>
-            
+
             {/* Mobile: Smaller circular progress */}
             <div className="mb-4 sm:mb-6">
-              <CircularProgress 
-                percentage={overallProgress} 
+              <CircularProgress
+                percentage={overallProgress}
                 size={window.innerWidth < 640 ? 100 : 150}
                 strokeWidth={window.innerWidth < 640 ? 6 : 8}
               />
             </div>
-            
+
             {/* Mobile-optimized stats layout */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <motion.div
@@ -215,7 +254,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
         </motion.div>
 
         {/* Mobile-optimized Stats Grid */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -229,7 +268,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <span className="hidden sm:inline">Current Streak</span>
             </p>
           </AnimatedCard>
-          
+
           <AnimatedCard className="p-4 sm:p-6 cyber-surface neon-border-blue text-center" delay={0.2}>
             <Target className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--neon-blue)] mx-auto mb-2 sm:mb-3" />
             <p className="text-lg sm:text-2xl">{longestStreak}</p>
@@ -238,7 +277,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <span className="hidden sm:inline">Longest Streak</span>
             </p>
           </AnimatedCard>
-          
+
           <AnimatedCard className="p-4 sm:p-6 cyber-surface neon-border-blue text-center" delay={0.3}>
             <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 mx-auto mb-2 sm:mb-3" />
             <p className="text-lg sm:text-2xl">{decks.length}</p>
@@ -247,7 +286,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <span className="hidden sm:inline">Active Decks</span>
             </p>
           </AnimatedCard>
-          
+
           <AnimatedCard className="p-4 sm:p-6 cyber-surface neon-border-blue text-center" delay={0.4}>
             <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--neon-purple)] mx-auto mb-2 sm:mb-3" />
             <p className="text-lg sm:text-2xl">{daysLearning}</p>
@@ -269,7 +308,7 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--neon-blue)]" />
               <h3 className="text-sm sm:text-base">Deck Progress</h3>
             </div>
-            
+
             {decks.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -286,10 +325,10 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
               <div className="space-y-3 sm:space-y-4">
                 {decks.map((deck, index) => {
                   const progress = deck.cardCount > 0 ? (deck.masteredCount / deck.cardCount) * 100 : 0;
-                  
+
                   return (
-                    <motion.div 
-                      key={deck.id} 
+                    <motion.div
+                      key={deck.id}
                       className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-secondary/20 rounded-lg"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -309,11 +348,11 @@ export const ProgressScreen: React.FC<ProgressScreenProps> = ({ decks, userProgr
                           </span>
                         </div>
                       </div>
-                      
+
                       {/* Mobile: Smaller progress circles */}
                       <div className="flex-shrink-0">
-                        <CircularProgress 
-                          percentage={progress} 
+                        <CircularProgress
+                          percentage={progress}
                           size={window.innerWidth < 640 ? 50 : 60}
                           strokeWidth={window.innerWidth < 640 ? 3 : 4}
                           showPercentage={window.innerWidth >= 640}

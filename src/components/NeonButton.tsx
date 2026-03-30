@@ -14,7 +14,7 @@ interface NeonButtonProps {
   type?: 'button' | 'submit' | 'reset';
 }
 
-const NeonButton: React.FC<NeonButtonProps> = ({
+const NeonButton = React.forwardRef<HTMLButtonElement, NeonButtonProps>(({
   children,
   onClick,
   variant = 'primary',
@@ -24,7 +24,7 @@ const NeonButton: React.FC<NeonButtonProps> = ({
   animate = true,
   glowing = true,
   type = 'button'
-}) => {
+}, ref) => {
   const getVariantClasses = () => {
     switch (variant) {
       case 'primary':
@@ -83,6 +83,7 @@ const NeonButton: React.FC<NeonButtonProps> = ({
   if (animate) {
     return (
       <motion.button
+        ref={ref}
         type={type}
         className={buttonClasses}
         onClick={disabled ? undefined : onClick}
@@ -135,6 +136,7 @@ const NeonButton: React.FC<NeonButtonProps> = ({
 
   return (
     <button
+      ref={ref}
       type={type}
       className={buttonClasses}
       onClick={disabled ? undefined : onClick}
@@ -148,6 +150,8 @@ const NeonButton: React.FC<NeonButtonProps> = ({
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500 ease-out" />
     </button>
   );
-};
+});
+
+NeonButton.displayName = 'NeonButton';
 
 export { NeonButton };

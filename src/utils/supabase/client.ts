@@ -1,12 +1,10 @@
 // Supabase Client Configuration
-// Modern, clean Supabase client for FlashLearn app
+// Modern, clean Supabase client and types
 
 import { createClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from './info';
 
-// Environment variables (for production)
-// const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-// const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export type LearningMode = 'static' | 'dynamic' | 'mcq';
 
 // Fallback to hardcoded values from info.tsx
 const supabaseUrl = `https://${projectId}.supabase.co`;
@@ -27,6 +25,7 @@ export interface Deck {
   card_count: number;
   mastered_count: number;
   last_studied: string | null;
+  preferred_mode: LearningMode;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +36,11 @@ export interface Card {
   front: string;
   back: string;
   mastered: boolean;
+  strength_score: number;
+  last_reviewed: string | null;
+  next_review_due: string | null;
+  total_attempts: number;
+  correct_attempts: number;
   created_at: string;
   updated_at: string;
 }
@@ -63,11 +67,22 @@ export interface DeckStats {
   cardCount: number;
   masteredCount: number;
   lastStudied: string | null;
+  preferredMode: LearningMode;
+  dueCount: number;
 }
 
-// ============================================
-// Export types for external use
-// ============================================
+export interface MCQOption {
+  text: string;
+  isCorrect: boolean;
+}
 
-export type { Deck, Card, UserProgress, DeckWithCards, DeckStats };
-
+export interface CardAttempt {
+  id: string;
+  card_id: string;
+  user_id: string;
+  is_correct: boolean;
+  response_time: number;
+  confidence: 'easy' | 'medium' | 'hard';
+  mode: LearningMode;
+  created_at: string;
+}

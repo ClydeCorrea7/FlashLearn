@@ -12,6 +12,7 @@ interface Deck {
   cardCount: number;
   masteredCount: number;
   lastStudied: string;
+  dueCount: number;
 }
 
 interface DashboardProps {
@@ -41,7 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
     <div className="min-h-screen bg-background overflow-auto">
       <div className="max-w-6xl mx-auto p-4 pb-24">
         {/* Header with mobile-optimized spacing */}
-        <motion.div 
+        <motion.div
           className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -53,8 +54,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
             </h1>
             <p className="text-muted-foreground text-sm">Continue your learning journey</p>
           </div>
-          <NeonButton 
-            onClick={onCreateDeck} 
+          <NeonButton
+            onClick={onCreateDeck}
             className="flex items-center gap-2 w-full sm:w-auto justify-center"
             animate={true}
           >
@@ -71,8 +72,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          <AnimatedCard 
-            variant="cyber" 
+          <AnimatedCard
+            variant="cyber"
             className="p-4"
             glowing={true}
             delay={0.2}
@@ -95,7 +96,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
         </motion.div>
 
         {/* Stats Cards - mobile-optimized grid */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -133,34 +134,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
               <div className="text-center sm:text-left flex-1">
                 <div className="flex items-center justify-center sm:justify-start gap-2">
                   <p className="text-xl sm:text-2xl">{totalMastered}</p>
-                  {/* Desktop: show full percentage, Mobile: show compact */}
                   <span className="hidden sm:inline text-sm text-[var(--neon-cyan)]">
                     ({Math.round(overallProgress)}%)
                   </span>
                 </div>
                 <p className="text-muted-foreground text-xs sm:text-sm">
-                  <span className="sm:hidden">Mastered</span>
-                  <span className="hidden sm:inline">Cards Mastered</span>
+                  Mastered
                 </p>
               </div>
             </div>
           </AnimatedCard>
         </motion.div>
 
+
+
         {/* Decks Grid */}
+        <div className="flex items-center gap-2 mb-4">
+          <BookOpen className="w-5 h-5 text-muted-foreground" />
+          <h2 className="text-lg font-medium text-white/80">Active Decks</h2>
+        </div>
+
         {decks.length === 0 ? (
-          <motion.div 
+          <motion.div
             className="text-center py-12 sm:py-16"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4, duration: 0.5 }}
           >
             <motion.div
-              animate={{ 
+              animate={{
                 rotate: [0, 10, -10, 0],
                 scale: [1, 1.1, 1]
               }}
-              transition={{ 
+              transition={{
                 duration: 2,
                 repeat: Infinity,
                 repeatType: "reverse"
@@ -172,7 +178,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
             <p className="text-muted-foreground mb-6 text-sm px-4">
               Create your first deck to get started with AI-powered learning
             </p>
-            <NeonButton 
+            <NeonButton
               onClick={onCreateDeck}
               animate={true}
               glowing={true}
@@ -183,7 +189,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
             </NeonButton>
           </motion.div>
         ) : (
-          <motion.div 
+          <motion.div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -191,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
           >
             {decks.map((deck, index) => {
               const progress = deck.cardCount > 0 ? (deck.masteredCount / deck.cardCount) * 100 : 0;
-              
+
               return (
                 <motion.div
                   key={deck.id}
@@ -245,11 +251,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                     </motion.div>
                   )}
 
-                  <AnimatedCard 
-                    className="p-4 sm:p-6 cyber-surface neon-border-blue"
+                  <AnimatedCard
+                    className={`p-4 sm:p-6 cyber-surface transition-all ${deck.dueCount > 0 ? 'neon-border-magenta border-magenta-500/40' : 'neon-border-blue border-white/10'}`}
                     hover={true}
                     delay={index * 0.1}
                   >
+                    {/* Due Badge */}
+                    {deck.dueCount > 0 && (
+                      <div className="absolute top-2 left-2 z-20">
+                        <motion.div 
+                          className="px-2 py-1 bg-magenta-500 text-white text-[8px] font-black uppercase rounded shadow-[0_0_10px_#ff00ff]"
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          {deck.dueCount} DUE
+                        </motion.div>
+                      </div>
+                    )}
                     {/* Deck Actions Menu */}
                     <div className="absolute top-2 right-2 z-10">
                       <button
@@ -261,7 +279,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
-                      
+
                       {/* Dropdown Menu */}
                       {activeMenu === deck.id && (
                         <motion.div
@@ -305,7 +323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                           {deck.description}
                         </p>
                       </div>
-                      
+
                       <div className="space-y-3">
                         {/* Mobile-optimized progress display */}
                         <div className="flex justify-between items-center text-xs sm:text-sm">
@@ -322,9 +340,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                             </span>
                           </div>
                         </div>
-                        
+
                         <Progress value={progress} className="h-1.5 sm:h-2" />
-                        
+
                         {/* Mobile-optimized metadata */}
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>{deck.cardCount} cards</span>
@@ -334,7 +352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Mobile: Add visual indicator for completion */}
                     {progress === 100 && (
                       <motion.div
@@ -356,4 +374,3 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
     </div>
   );
 };
-

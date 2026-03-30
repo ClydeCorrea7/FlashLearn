@@ -4,7 +4,8 @@ import { NeonButton } from './NeonButton';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { ArrowLeft, Play, Plus, Edit2, Trash2, RotateCcw, X, Save, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Play, Plus, Edit2, Trash2, Check, X, Save, AlertTriangle, FileText, ListChecks } from 'lucide-react';
+import { DeckImportExport } from './DeckImportExport';
 
 interface Flashcard {
   id: string;
@@ -18,6 +19,8 @@ interface Deck {
   title: string;
   description: string;
   cards: Flashcard[];
+  preferredMode: import('../utils/supabase/client').LearningMode;
+  dueCount: number;
 }
 
 interface DeckViewScreenProps {
@@ -101,383 +104,272 @@ export const DeckViewScreen: React.FC<DeckViewScreenProps> = ({
     });
   };
 
-  const handleResetProgress = () => {
-    onUpdateDeck({
-      ...deck,
-      cards: deck.cards.map(card => ({ ...card, mastered: false }))
-    });
-  };
-
-  const handleDeleteDeck = () => {
-    onDeleteDeck(deck.id);
-    onBack();
-  };
-
   return (
-    <div className="min-h-screen bg-[var(--cyber-bg)] overflow-auto">
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-[var(--cyber-surface)] border border-red-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl shadow-red-500/20"
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-4 bg-red-500/10 rounded-full">
-                  <AlertTriangle className="w-8 h-8 text-red-500" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold">Delete Deck?</h3>
-                  <p className="text-muted-foreground text-sm">"{deck.title}"</p>
-                </div>
-              </div>
-              
-              <p className="text-muted-foreground mb-6">
-                This will permanently delete this deck and all {deck.cards.length} cards. 
-                This action cannot be undone.
-              </p>
-              
-              <div className="flex gap-4">
-                <NeonButton
-                  variant="secondary"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3"
-                >
-                  Cancel
-                </NeonButton>
-                <motion.button
-                  onClick={handleDeleteDeck}
-                  className="flex-1 py-3 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  Delete Deck
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+    <div className="min-h-screen bg-background overflow-auto">
       <div className="max-w-4xl mx-auto p-4 pb-24">
         {/* Header */}
-        <motion.div 
-          className="flex items-center gap-3 mb-6"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-        >
-          <motion.button 
-            onClick={onBack}
-            className="p-3 rounded-xl hover:bg-secondary/50 transition-colors"
-            whileTap={{ scale: 0.9 }}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </motion.button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg sm:text-xl bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent truncate">
-              {deck.title}
-            </h1>
-            <p className="text-sm text-muted-foreground truncate">{deck.description}</p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={onBack}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
+                  {deck.title}
+                </h1>
+                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${
+                  deck.preferredMode === 'mcq' 
+                    ? 'bg-magenta-500/10 border-magenta-500/30 text-magenta-500' 
+                    : 'bg-blue-500/10 border-blue-500/30 text-blue-500'
+                }`}>
+                  {deck.preferredMode === 'mcq' ? 'MCQ Deck' : 'Static Deck'}
+                </span>
+              </div>
+              <p className="text-muted-foreground text-sm line-clamp-1">{deck.description}</p>
+            </div>
           </div>
           
-          {/* Delete Button */}
-          <motion.button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-            whileTap={{ scale: 0.9 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Trash2 className="w-5 h-5" />
-          </motion.button>
-        </motion.div>
-
-        {/* Stats and Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card className="cyber-surface p-4 sm:p-6 mb-6 neon-border-blue">
-            <div className="flex flex-col gap-4">
-              {/* Stats Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex gap-6">
-                  <div>
-                    <p className="text-2xl">{deck.cards.length}</p>
-                    <p className="text-xs text-muted-foreground">Total Cards</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl text-green-400">{masteredCount}</p>
-                    <p className="text-xs text-muted-foreground">Mastered</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl text-[var(--neon-purple)]">{Math.round(progress)}%</p>
-                    <p className="text-xs text-muted-foreground">Progress</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <motion.div 
-                  className="h-full cyber-gradient"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                />
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2 pt-2">
-                <NeonButton
-                  onClick={() => onStartStudy(deck.id)}
-                  disabled={deck.cards.length === 0}
-                  className="flex items-center gap-2"
-                  animate={true}
-                  glowing={deck.cards.length > 0}
-                >
-                  <Play className="w-4 h-4" />
-                  Study Now
-                </NeonButton>
-                <NeonButton
-                  onClick={() => setShowAddCard(true)}
-                  variant="secondary"
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Card
-                </NeonButton>
-                {masteredCount > 0 && (
-                  <NeonButton
-                    variant="secondary"
-                    onClick={handleResetProgress}
-                    className="flex items-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    Reset Progress
-                  </NeonButton>
-                )}
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Add New Card */}
-        <AnimatePresence>
-          {showAddCard && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          <div className="flex items-center gap-2">
+            <NeonButton 
+              onClick={() => onStartStudy(deck.id)}
+              animate={true}
+              glowing={true}
+              size="sm"
+              className="flex items-center gap-2 w-full sm:w-auto justify-center"
             >
-              <Card className="cyber-surface p-6 mb-6 neon-border-purple">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Add New Card</h3>
-                  <motion.button
-                    onClick={() => {
-                      setShowAddCard(false);
-                      setNewCardFront('');
-                      setNewCardBack('');
-                    }}
-                    className="p-2 hover:bg-secondary rounded-lg transition-colors"
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    <X className="w-5 h-5" />
-                  </motion.button>
+              <Play className="w-4 h-4" />
+              <span>Study Now</span>
+            </NeonButton>
+          </div>
+        </div>
+
+
+        {/* Stats & Actions Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-8">
+          <div className="flex-1">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium">Deck Mastery</span>
+              <span className="text-sm text-[var(--neon-blue)]">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)]"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 1 }}
+              />
+            </div>
+            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+              <span>{deck.cards.length} Total Cards</span>
+              <span>{masteredCount} Mastered</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <DeckImportExport 
+              title="PORTABILITY"
+              onExport={() => ({
+                title: deck.title,
+                description: deck.description,
+                cards: deck.cards.map(c => ({ front: c.front, back: c.back }))
+              })}
+            />
+            <button 
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-red-500/20"
+              title="Delete Deck"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Add Card Section */}
+        <AnimatePresence>
+          {showAddCard ? (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-8 p-6 rounded-2xl cyber-surface neon-border-blue"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg">Create New Card</h3>
+                <button onClick={() => setShowAddCard(false)}>
+                  <X className="w-5 h-5 text-muted-foreground hover:text-white" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase mb-1 block">
+                    {deck.preferredMode === 'mcq' ? 'Question' : 'Front (Question)'}
+                  </label>
+                  <Input 
+                    value={newCardFront}
+                    onChange={(e) => setNewCardFront(e.target.value)}
+                    placeholder="Enter the question..."
+                  />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm mb-2 text-muted-foreground">Front (Question)</label>
-                    <Textarea
-                      value={newCardFront}
-                      onChange={(e) => setNewCardFront(e.target.value)}
-                      placeholder="Enter the question or term..."
-                      className="cyber-surface neon-border-blue min-h-[120px] resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-2 text-muted-foreground">Back (Answer)</label>
-                    <Textarea
-                      value={newCardBack}
-                      onChange={(e) => setNewCardBack(e.target.value)}
-                      placeholder="Enter the answer or definition..."
-                      className="cyber-surface neon-border-blue min-h-[120px] resize-none"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase mb-1 block">
+                    {deck.preferredMode === 'mcq' ? 'Correct Answer' : 'Back (Answer)'}
+                  </label>
+                  <Textarea 
+                    value={newCardBack}
+                    onChange={(e) => setNewCardBack(e.target.value)}
+                    placeholder={deck.preferredMode === 'mcq' ? "Enter the correct answer..." : "Enter the answer..."}
+                  />
                 </div>
-                <div className="flex justify-end">
-                  <NeonButton 
-                    onClick={() => {
-                      handleAddCard();
-                      setShowAddCard(false);
-                    }}
-                    disabled={!newCardFront.trim() || !newCardBack.trim()}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
+                <div className="flex gap-3">
+                  <NeonButton onClick={handleAddCard} className="flex-1">
                     Add Card
                   </NeonButton>
+                  <button 
+                    onClick={() => setShowAddCard(false)}
+                    className="flex-1 bg-secondary hover:bg-secondary/80 rounded-xl transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              </Card>
+              </div>
             </motion.div>
+          ) : (
+            <button 
+              onClick={() => setShowAddCard(true)}
+              className="w-full py-4 border-2 border-dashed border-white/10 rounded-2xl text-muted-foreground hover:text-white hover:border-[var(--neon-blue)]/50 transition-all flex items-center justify-center gap-2 mb-8 group"
+            >
+              <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              Add New Card
+            </button>
           )}
         </AnimatePresence>
 
-        {/* Cards Grid - Uniform Size Cards */}
-        {deck.cards.length === 0 ? (
-          <motion.div 
-            className="text-center py-16"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <motion.div
-              animate={{ 
-                rotate: [0, 10, -10, 0],
-                scale: [1, 1.05, 1]
-              }}
-              transition={{ 
-                duration: 2,
-                repeat: Infinity,
-                repeatType: "reverse"
-              }}
-            >
-              <Plus className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            </motion.div>
-            <h3 className="mb-2 text-xl">No cards yet</h3>
-            <p className="text-muted-foreground mb-6">Add your first flashcard to get started</p>
-            <NeonButton onClick={() => setShowAddCard(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Your First Card
-            </NeonButton>
-          </motion.div>
-        ) : (
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            {deck.cards.map((card, index) => (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="h-full"
-              >
-                <Card 
-                  className={`cyber-surface p-4 transition-all duration-300 h-full flex flex-col ${
-                    card.mastered 
-                      ? 'border-green-500/30 bg-green-500/5' 
-                      : 'neon-border-blue hover:neon-glow-blue'
-                  }`}
-                >
-                  {editingCardId === card.id ? (
-                    // Edit mode
-                    <div className="space-y-4 flex-1 flex flex-col">
-                      <div className="flex-1">
-                        <label className="text-xs text-[var(--neon-blue)] block mb-1">FRONT</label>
-                        <Textarea
-                          value={editedFront}
-                          onChange={(e) => setEditedFront(e.target.value)}
-                          className="cyber-surface neon-border-blue text-sm min-h-[80px] resize-none"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="text-xs text-[var(--neon-purple)] block mb-1">BACK</label>
-                        <Textarea
-                          value={editedBack}
-                          onChange={(e) => setEditedBack(e.target.value)}
-                          className="cyber-surface neon-border-blue text-sm min-h-[80px] resize-none"
-                        />
-                      </div>
-                      <div className="flex gap-2 justify-end pt-2">
-                        <motion.button
-                          onClick={handleCancelEdit}
-                          className="px-4 py-2 text-sm rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </motion.button>
-                        <motion.button
-                          onClick={handleSaveEditCard}
-                          disabled={!editedFront.trim() || !editedBack.trim()}
-                          className="px-4 py-2 text-sm rounded-lg bg-[var(--neon-blue)] text-white hover:bg-[var(--neon-blue)]/80 transition-colors disabled:opacity-50 flex items-center gap-2"
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          <Save className="w-4 h-4" />
-                          Save
-                        </motion.button>
-                      </div>
+        {/* Cards List */}
+        <div className="grid grid-cols-1 gap-4 mb-8">
+          {deck.cards.map((card) => (
+            <Card key={card.id} className="p-4 sm:p-6 cyber-surface border-white/10">
+              {editingCardId === card.id ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase mb-1 block text-left">
+                      {deck.preferredMode === 'mcq' ? 'Question' : 'Front'}
+                    </label>
+                    <Input 
+                      value={editedFront}
+                      onChange={(e) => setEditedFront(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground uppercase mb-1 block text-left">
+                      {deck.preferredMode === 'mcq' ? 'Correct Answer' : 'Back'}
+                    </label>
+                    <Textarea 
+                      value={editedBack}
+                      onChange={(e) => setEditedBack(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handleSaveEditCard}
+                      className="p-2 bg-[var(--neon-blue)]/20 text-[var(--neon-blue)] rounded-lg hover:bg-[var(--neon-blue)]/30 transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={handleCancelEdit}
+                      className="p-2 bg-secondary text-muted-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <span className="text-[10px] text-[var(--neon-blue)] uppercase font-bold tracking-widest block mb-1">
+                        {deck.preferredMode === 'mcq' ? 'Question' : 'Front'}
+                      </span>
+                      <p className="text-sm font-medium">{card.front}</p>
                     </div>
-                  ) : (
-                    // View mode - Uniform card layout with non-bold text
-                    <div className="space-y-3 h-full flex flex-col">
-                      {/* Front */}
-                      <div className="flex-1 min-h-0">
-                        <label className="text-xs text-[var(--neon-blue)] mb-1 block">FRONT</label>
-                        <p className="break-words text-sm font-normal">{card.front}</p>
-                      </div>
-                      
-                      {/* Divider */}
-                      <div className="border-t border-border/30" />
-                      
-                      {/* Back */}
-                      <div className="flex-1 min-h-0">
-                        <label className="text-xs text-[var(--neon-purple)] mb-1 block">BACK</label>
-                        <p className="break-words text-sm font-normal">{card.back}</p>
-                      </div>
-                      
-                      {/* Mastered Badge */}
-                      {card.mastered && (
-                        <div className="text-xs text-green-400 flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                          Mastered
-                        </div>
-                      )}
-                      
-                      {/* Action Buttons */}
-                      <div className="flex gap-2 justify-end pt-2 border-t border-border/30 mt-auto">
-                        <motion.button
-                          onClick={() => handleStartEditCard(card)}
-                          className="p-2 text-[var(--neon-blue)] hover:text-[var(--neon-purple)] hover:bg-[var(--neon-blue)]/10 rounded-lg transition-colors"
-                          title="Edit card"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </motion.button>
-                        <motion.button
-                          onClick={() => handleDeleteCard(card.id)}
-                          className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Delete card"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </motion.button>
-                      </div>
+                    <div className="pt-3 border-t border-white/5">
+                      <span className="text-[10px] text-[var(--neon-purple)] uppercase font-bold tracking-widest block mb-1">
+                        {deck.preferredMode === 'mcq' ? 'Correct Answer' : 'Back'}
+                      </span>
+                      <p className="text-sm text-muted-foreground">{card.back}</p>
                     </div>
-                  )}
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
+                    {card.mastered && (
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] uppercase font-bold rounded border border-emerald-500/20 mt-2">
+                        <Check className="w-3 h-3" />
+                        Mastered
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <button 
+                      onClick={() => handleStartEditCard(card)}
+                      className="p-2 text-muted-foreground hover:bg-secondary rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteCard(card.id)}
+                      className="p-2 text-red-400/60 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
 
-        {/* Bottom padding for navigation bar */}
-        <div className="h-12" />
+        {/* Delete Deck Confirmation Modal */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-[var(--cyber-surface)] border border-red-500/30 rounded-2xl p-8 max-w-md w-full"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-red-500/10 rounded-full">
+                    <AlertTriangle className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h3 className="text-xl font-bold">Delete this Deck?</h3>
+                </div>
+                <p className="text-muted-foreground mb-8 leading-relaxed">
+                  You are about to permanently delete <span className="text-white font-bold">"{deck.title}"</span> and all its {deck.cards.length} flashcards. This action cannot be reversed.
+                </p>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-3 bg-secondary hover:bg-secondary/80 rounded-xl transition-colors font-medium text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      onDeleteDeck(deck.id);
+                      onBack();
+                    }}
+                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 rounded-xl transition-colors font-bold text-sm text-white"
+                  >
+                    Delete Deck
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 };
-

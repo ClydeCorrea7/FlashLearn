@@ -10,6 +10,9 @@ import { StudyModeScreen } from "./components/StudyModeScreen";
 import { ProgressScreen } from "./components/ProgressScreen";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { PageTransition } from "./components/PageTransition";
+import { DeleteAccountModule } from "./components/DeleteAccountModule";
+import { DeckImportExport } from './components/DeckImportExport';
+import { DynamicSession } from "./components/study/DynamicSession";
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { supabase } from './utils/supabase/client';
 import * as supabaseOps from './utils/supabase/operations';
@@ -29,6 +32,11 @@ interface Flashcard {
   front: string;
   back: string;
   mastered: boolean;
+  strength_score?: number;
+  last_reviewed?: string | null;
+  next_review_due?: string | null;
+  total_attempts?: number;
+  correct_attempts?: number;
 }
 
 interface Deck {
@@ -39,17 +47,25 @@ interface Deck {
   cardCount: number;
   masteredCount: number;
   lastStudied: string;
+  preferredMode: import('./utils/supabase/client').LearningMode;
+  dueCount: number;
 }
 
 type Screen =
-  | "auth"
-  | "onboarding"
-  | "dashboard"
-  | "create-deck"
-  | "deck-view"
-  | "study-mode"
-  | "progress"
-  | "settings";
+  | 'dashboard'
+  | 'create-deck'
+  | 'deck-view'
+  | 'study'
+  | 'edit-deck'
+  | 'pdf-upload'
+  | 'progress'
+  | 'import-export'
+  | 'dynamic-session'
+  | 'auth'
+  | 'onboarding'
+  | 'study-mode'
+  | 'settings'
+  | 'purge';
 
 interface UserProgress {
   user_id: string;
@@ -75,12 +91,12 @@ interface AppState {
 
 // AI Integration for flashcard generation using OpenAI
 const generateFlashcardsWithAI = async (
-  topic: string, 
+  topic: string,
   count: number = 10
-): Promise<Array<{front: string, back: string}>> => {
+): Promise<Array<{ front: string, back: string }>> => {
   try {
     console.log(`Generating ${count} AI flashcards for topic: ${topic}`);
-    
+
     // Call the server endpoint for AI generation
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/generate-flashcards`,
@@ -88,7 +104,8 @@ const generateFlashcardsWithAI = async (
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'apikey': publicAnonKey
         },
         body: JSON.stringify({
           topic,
@@ -100,14 +117,21 @@ const generateFlashcardsWithAI = async (
     );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('AI generation API error:', errorData);
-      throw new Error(errorData.error || 'Failed to generate flashcards');
+      let errorMessage = 'Failed to generate flashcards';
+      const text = await response.text();
+      try {
+        const errorData = JSON.parse(text);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = `Server responded with ${response.status}: ${text || 'No detail provided'}`;
+      }
+      console.error('AI generation API error:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
     console.log(`Successfully received ${data.flashcards.length} AI-generated flashcards`);
-    
+
     return data.flashcards;
   } catch (error) {
     console.error('AI generation failed:', error);
@@ -115,66 +139,6 @@ const generateFlashcardsWithAI = async (
   }
 };
 
-// Generate flashcards from PDF using AI
-const generateFlashcardsFromPDF = async (
-  file: File, 
-  count: number = 10
-): Promise<Array<{front: string, back: string}>> => {
-  try {
-    console.log(`Generating ${count} AI flashcards from PDF: ${file.name}`);
-    
-    // Convert file to base64
-    const base64 = await fileToBase64(file);
-    
-    // Call the server endpoint for PDF-based AI generation
-    const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/generate-flashcards-from-pdf`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
-        body: JSON.stringify({
-          file: base64,
-          fileName: file.name,
-          count,
-          difficulty: 'medium',
-          language: 'english'
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('PDF generation API error:', errorData);
-      throw new Error(errorData.error || 'Failed to generate flashcards from PDF');
-    }
-
-    const data = await response.json();
-    console.log(`Successfully received ${data.flashcards.length} AI-generated flashcards from PDF`);
-    
-    return data.flashcards;
-  } catch (error) {
-    console.error('PDF AI generation failed:', error);
-    throw new Error(`Failed to generate AI flashcards from PDF: ${error.message}`);
-  }
-};
-
-// Helper function to convert file to base64
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Remove the data URL prefix (e.g., "data:application/pdf;base64,")
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = (error) => reject(error);
-  });
-};
 
 function App() {
   const [state, setState] = useState<AppState>({
@@ -203,7 +167,7 @@ function App() {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    
+
     // Initialize app
     initializeApp();
 
@@ -229,7 +193,7 @@ function App() {
 
       // Check for existing Supabase session
       const { data: { session }, error } = await supabase.auth.getSession();
-      
+
       // Simulate loading time for smooth animation
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
@@ -305,7 +269,9 @@ function App() {
           cards: [],
           cardCount: deck.cardCount,
           masteredCount: deck.masteredCount,
-          lastStudied: deck.lastStudied || 'Never'
+          lastStudied: deck.lastStudied || 'Never',
+          preferredMode: deck.preferredMode,
+          dueCount: deck.dueCount
         })),
         userProgress: progress ? {
           user_id: progress.user_id,
@@ -327,10 +293,10 @@ function App() {
     try {
       // Get the current session from Supabase (already set by SimpleAuthScreen)
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session?.user) {
         const user = session.user;
-        
+
         setState((prev) => ({
           ...prev,
           isAuthenticated: true,
@@ -370,21 +336,26 @@ function App() {
       hasSeenOnboarding: true,
       currentScreen: "dashboard",
     }));
-    
+
     // Save onboarding completion
     localStorage.setItem('flashlearn_onboarding', 'true');
+  };
+
+  const handleStartDynamicSession = () => {
+    setState(prev => ({ ...prev, currentScreen: 'dynamic-session' }));
   };
 
   const handleCreateDeck = async (
     title: string,
     description: string,
-    cards: Array<{ front: string; back: string }>,
+    cards: { front: string; back: string }[],
+    preferredMode: 'static' | 'mcq' | 'dynamic' = 'static'
   ) => {
     try {
       setState((prev) => ({ ...prev, syncStatus: "syncing" }));
 
-      // Create deck in Supabase
-      const deck = await supabaseOps.createDeck(title, description, cards);
+      // Create deck in Supabase with preferred mode
+      const deck = await supabaseOps.createDeck(title, description, cards, preferredMode);
 
       // Format deck for local state
       const formattedDeck: Deck = {
@@ -399,11 +370,13 @@ function App() {
         })),
         cardCount: cards.length,
         masteredCount: 0,
+        preferredMode: preferredMode,
         lastStudied: "Never",
+        dueCount: 0
       };
 
       const updatedDecks = [...state.decks, formattedDeck];
-      
+
       setState((prev) => ({
         ...prev,
         decks: updatedDecks,
@@ -417,15 +390,20 @@ function App() {
     }
   };
 
-  const handleCreateDeckWithAI = async (topic: string, cardCount: number) => {
+  const handleCreateDeckWithAI = async (
+    topic: string, 
+    cardCount: number,
+    preferredMode: 'static' | 'mcq' | 'dynamic' = 'static'
+  ) => {
     try {
       setState((prev) => ({ ...prev, syncStatus: "syncing" }));
-      
+
       const aiCards = await generateFlashcardsWithAI(topic, cardCount);
       await handleCreateDeck(
-        `AI Generated: ${topic}`,
+        `${preferredMode === 'mcq' ? 'MCQ' : 'Static'} : ${topic}`,
         `Auto-generated flashcards about ${topic}`,
-        aiCards
+        aiCards,
+        preferredMode
       );
     } catch (error) {
       console.error("Failed to create AI deck:", error);
@@ -433,21 +411,6 @@ function App() {
     }
   };
 
-  const handleCreateDeckFromPDF = async (file: File, cardCount: number) => {
-    try {
-      setState((prev) => ({ ...prev, syncStatus: "syncing" }));
-      
-      const aiCards = await generateFlashcardsFromPDF(file, cardCount);
-      await handleCreateDeck(
-        `PDF: ${file.name.replace('.pdf', '')}`,
-        `Flashcards extracted from: ${file.name}`,
-        aiCards
-      );
-    } catch (error) {
-      console.error("Failed to create PDF deck:", error);
-      setState((prev) => ({ ...prev, syncStatus: "error" }));
-    }
-  };
 
   const handleUpdateDeck = async (updatedDeck: Deck) => {
     try {
@@ -456,15 +419,17 @@ function App() {
       // Update deck in Supabase
       await supabaseOps.updateDeck(updatedDeck.id, {
         title: updatedDeck.title,
-        description: updatedDeck.description
+        description: updatedDeck.description,
+        preferred_mode: updatedDeck.preferredMode
       });
 
       // Update cards in Supabase
       if (updatedDeck.cards.length > 0) {
-        await supabaseOps.replaceCards(updatedDeck.id, 
+        await supabaseOps.replaceCards(updatedDeck.id,
           updatedDeck.cards.map(card => ({
             front: card.front,
-            back: card.back
+            back: card.back,
+            mastered: card.mastered
           }))
         );
       }
@@ -478,11 +443,11 @@ function App() {
       const updatedDecks = state.decks.map((deck) =>
         deck.id === updatedDeck.id
           ? {
-              ...updatedDeck,
-              cardCount,
-              masteredCount,
-              lastStudied: "Just now",
-            }
+            ...updatedDeck,
+            cardCount,
+            masteredCount,
+            lastStudied: "Just now",
+          }
           : deck,
       );
 
@@ -509,7 +474,7 @@ function App() {
 
       // Update local state
       const updatedDecks = state.decks.filter((deck) => deck.id !== deckId);
-      
+
       setState((prev) => ({
         ...prev,
         decks: updatedDecks,
@@ -543,22 +508,24 @@ function App() {
 
       if (deckWithCards) {
         // Update the deck in state with full cards
-        const updatedDecks = state.decks.map(deck => 
-          deck.id === deckId 
+        const updatedDecks = state.decks.map(deck =>
+          deck.id === deckId
             ? {
-                id: deckWithCards.id,
-                title: deckWithCards.title,
-                description: deckWithCards.description || '',
-                cards: deckWithCards.cards.map(card => ({
-                  id: card.id,
-                  front: card.front,
-                  back: card.back,
-                  mastered: card.mastered
-                })),
-                cardCount: deckWithCards.cards.length,
-                masteredCount: deckWithCards.cards.filter(c => c.mastered).length,
-                lastStudied: deckWithCards.last_studied || 'Never'
-              }
+              id: deckWithCards.id,
+              title: deckWithCards.title,
+              description: deckWithCards.description || '',
+              cards: deckWithCards.cards.map(card => ({
+                id: card.id,
+                front: card.front,
+                back: card.back,
+                mastered: card.mastered
+              })),
+              cardCount: deckWithCards.cards.length,
+              masteredCount: deckWithCards.cards.filter(c => c.mastered).length,
+              lastStudied: deckWithCards.last_studied || 'Never',
+              preferredMode: deckWithCards.preferred_mode,
+              dueCount: 0 // Will be synced on return to dashboard
+            }
             : deck
         );
 
@@ -596,7 +563,7 @@ function App() {
 
     setState((prev) => ({
       ...prev,
-      currentScreen: "deck-view",
+      currentScreen: "dashboard",
     }));
   };
 
@@ -621,34 +588,53 @@ function App() {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (purgeEverything: boolean = true) => {
     try {
+      console.log(`[DeleteAccount] Starting ${purgeEverything ? 'full account purge' : 'data wipe'} process...`);
       setState((prev) => ({ ...prev, isDeleting: true, syncStatus: "syncing" }));
 
-      // Delete user account and all associated data
-      await supabaseOps.deleteUserAccount();
+      // Wipe/Delete account
+      await supabaseOps.deleteUserAccount(purgeEverything);
 
-      // Sign out from Supabase
-      await supabase.auth.signOut();
+      if (purgeEverything) {
+        // Full purge: sign out and return to auth
+        await supabase.auth.signOut();
+        setState((prev) => ({
+          ...prev,
+          isAuthenticated: false,
+          hasSeenOnboarding: false,
+          currentScreen: "auth",
+          decks: [],
+          selectedDeckId: null,
+          syncStatus: "idle",
+          user: null,
+          userProgress: null,
+          isDeleting: false,
+        }));
+      } else {
+        // Wipe only: clear local list and stay on settings
+        setState((prev) => ({
+          ...prev,
+          decks: [],
+          userProgress: {
+            user_id: state.user?.id || '',
+            total_cards: 0,
+            mastered_cards: 0,
+            current_streak: 0,
+            longest_streak: 0
+          },
+          isDeleting: false,
+          syncStatus: "success",
+          currentScreen: "dashboard" // Kick back to dashboard after wipe
+        }));
+      }
 
-      setState((prev) => ({
-        ...prev,
-        isAuthenticated: false,
-        hasSeenOnboarding: false,
-        currentScreen: "auth",
-        decks: [],
-        selectedDeckId: null,
-        syncStatus: "idle",
-        user: null,
-        userProgress: null,
-        isDeleting: false,
-      }));
-
-      alert("Your account has been permanently deleted.");
+      console.log(`[DeleteAccount] ${purgeEverything ? 'Account purge' : 'Data wipe'} successful.`);
     } catch (error) {
-      console.error("Delete account error:", error);
+      console.error("[DeleteAccount] Error during process:", error);
       setState((prev) => ({ ...prev, isDeleting: false, syncStatus: "error" }));
-      alert("Failed to delete account. Please try again or contact support.");
+      console.warn("Failed to complete request. System state may be inconsistent.");
+      throw error;
     }
   };
 
@@ -720,7 +706,7 @@ function App() {
               }}
             >
               <Brain className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
-              
+
               <motion.div
                 className="absolute -top-1 -right-1 w-4 h-4 sm:w-6 sm:h-6 bg-[var(--neon-purple)] rounded-full flex items-center justify-center neon-glow-purple"
                 animate={{ rotate: [0, 360] }}
@@ -869,11 +855,10 @@ function App() {
                     currentScreen: item.screen as Screen,
                   }))
                 }
-                className={`flex flex-col items-center p-3 rounded-xl transition-all duration-200 min-w-0 flex-1 ${
-                  isActive
+                className={`flex flex-col items-center p-3 rounded-xl transition-all duration-200 min-w-0 flex-1 ${isActive
                     ? "cyber-gradient text-white neon-glow-blue"
                     : "hover:bg-secondary/50 text-muted-foreground"
-                }`}
+                  }`}
                 whileTap={{ scale: 0.9 }}
                 whileHover={{ scale: 1.02 }}
                 initial={{ opacity: 0, y: 20 }}
@@ -960,6 +945,20 @@ function App() {
           </PageTransition>
         );
 
+      case "dynamic-session":
+        return (
+          <PageTransition>
+            <DynamicSession
+              onClose={() =>
+                setState((prev) => ({
+                  ...prev,
+                  currentScreen: "dashboard",
+                }))
+              }
+            />
+          </PageTransition>
+        );
+
       case "create-deck":
         return (
           <PageTransition>
@@ -972,7 +971,7 @@ function App() {
               }
               onCreateDeck={handleCreateDeck}
               onCreateDeckWithAI={handleCreateDeckWithAI}
-              onCreateDeckFromPDF={handleCreateDeckFromPDF}
+              onStartDynamicSession={handleStartDynamicSession}
             />
           </PageTransition>
         );
@@ -1014,12 +1013,8 @@ function App() {
             <StudyModeScreen
               cards={selectedDeck.cards}
               deckTitle={selectedDeck.title}
-              onBack={() =>
-                setState((prev) => ({
-                  ...prev,
-                  currentScreen: "deck-view",
-                }))
-              }
+              initialMode={selectedDeck.preferredMode}
+              onBack={() => setState((prev) => ({ ...prev, currentScreen: "deck-view" }))}
               onComplete={handleCompleteStudy}
             />
           </PageTransition>
@@ -1071,8 +1066,29 @@ function App() {
                 }))
               }
               onSignOut={handleSignOut}
-              onDeleteAccount={handleDeleteAccount}
+              onStartPurge={() =>
+                setState((prev) => ({
+                  ...prev,
+                  currentScreen: "purge",
+                }))
+              }
               user={state.user}
+              isDeleting={state.isDeleting}
+            />
+          </PageTransition>
+        );
+
+      case "purge":
+        return (
+          <PageTransition>
+            <DeleteAccountModule
+              onConfirm={handleDeleteAccount}
+              onAbort={() =>
+                setState((prev) => ({
+                  ...prev,
+                  currentScreen: "settings",
+                }))
+              }
               isDeleting={state.isDeleting}
             />
           </PageTransition>
@@ -1139,12 +1155,17 @@ function App() {
           </motion.div>
         </AnimatePresence>
 
-        <SyncIndicator />
-        <PWAInstallPrompt />
-        <NavigationBar />
-
-        {state.isAuthenticated && state.hasSeenOnboarding && (
-          <div className="pb-24" />
+        {state.currentScreen !== "purge" && (
+          <>
+            <SyncIndicator />
+            <PWAInstallPrompt />
+            {state.currentScreen !== "study-mode" && state.currentScreen !== "dynamic-session" && (
+              <NavigationBar />
+            )}
+            {state.isAuthenticated && state.hasSeenOnboarding && state.currentScreen !== "study-mode" && state.currentScreen !== "dynamic-session" && (
+              <div className="pb-24" />
+            )}
+          </>
         )}
       </div>
     </ThemeProvider>

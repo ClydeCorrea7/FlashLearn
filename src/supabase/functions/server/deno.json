@@ -1,0 +1,11 @@
+{
+  "imports": {
+    "hono": "jsr:@hono/hono",
+    "hono/": "jsr:@hono/hono/",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "https://esm.sh/react@18.2.0"
+  }
+}

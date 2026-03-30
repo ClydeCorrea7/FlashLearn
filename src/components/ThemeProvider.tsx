@@ -24,17 +24,24 @@ interface ThemeProviderProps {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>('dark'); // Default to dark mode
 
+  // Load persisted theme from localStorage on mount
   useEffect(() => {
-    // Apply theme class to document
+    const stored = localStorage.getItem('flashlearn-theme') as Theme | null;
+    if (stored) setTheme(stored);
+  }, []);
+
+  // Apply theme class and persist changes
+  useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    localStorage.setItem('flashlearn-theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   return (

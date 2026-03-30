@@ -8,30 +8,38 @@ import { ArrowLeft, Sparkles, Loader2, Brain, Zap, Plus, FileText, Upload, File 
 
 interface CreateDeckScreenProps {
   onBack: () => void;
-  onCreateDeck: (title: string, description: string, cards: Array<{front: string, back: string}>) => void;
-  onCreateDeckWithAI?: (topic: string, cardCount: number) => void;
-  onCreateDeckFromPDF?: (file: File, cardCount: number) => void;
+  onCreateDeck: (title: string, description: string, cards: Array<{front: string, back: string}>, mode?: 'static' | 'dynamic' | 'mcq') => void;
+  onCreateDeckWithAI?: (topic: string, cardCount: number, mode?: 'static' | 'dynamic' | 'mcq') => void;
+  onStartDynamicSession?: () => void;
 }
+
 
 export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({ 
   onBack, 
   onCreateDeck, 
   onCreateDeckWithAI,
-  onCreateDeckFromPDF
+  onStartDynamicSession
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [cardCount, setCardCount] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedMode, setSelectedMode] = useState<'static' | 'mcq' | 'dynamic'>('static');
+
 
   const handleGenerateWithAI = async () => {
-    if (!title.trim() || !onCreateDeckWithAI) return;
+    if (selectedMode !== 'dynamic' && !title.trim()) return;
+    
+    if (selectedMode === 'dynamic' && onStartDynamicSession) {
+      onStartDynamicSession();
+      return;
+    }
+
+    if (!onCreateDeckWithAI) return;
     
     setIsGenerating(true);
-    
     try {
-      await onCreateDeckWithAI(title.trim(), cardCount);
+      await onCreateDeckWithAI(title.trim(), cardCount, selectedMode);
     } catch (error) {
       console.error('AI generation failed:', error);
     } finally {
@@ -39,36 +47,16 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
     }
   };
 
-  const handleUploadPDF = async () => {
-    if (!selectedFile || !onCreateDeckFromPDF) return;
-    
-    setIsGenerating(true);
-    
-    try {
-      await onCreateDeckFromPDF(selectedFile, cardCount);
-    } catch (error) {
-      console.error('PDF upload failed:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleCreateEmptyDeck = () => {
-    // Create deck with the title if provided, otherwise use a default title
+    if (selectedMode === 'dynamic') return;
     const deckTitle = title.trim() || `My Deck ${new Date().toLocaleDateString()}`;
-    onCreateDeck(deckTitle, description, []);
+    onCreateDeck(deckTitle, description, [], selectedMode);
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type === 'application/pdf') {
-      setSelectedFile(file);
-    } else {
-      alert('Please select a valid PDF file');
-    }
-  };
 
-  const cardCountOptions = [5, 10, 15, 20, 25];
+
+  const cardCountOptions = [5, 10, 15];
 
   // Check if any generation is in progress
   const isBusy = isGenerating;
@@ -109,63 +97,101 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
             delay={0.2}
           >
             <div className="space-y-6">
-              {/* Title Input */}
+              {/* Mode Selection */}
               <div>
                 <label className="block mb-3 text-sm">
-                  Deck Title
+                  Learning Methodology
                 </label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., JavaScript Fundamentals, Spanish Vocabulary..."
-                  className="cyber-surface neon-border-blue focus:neon-glow-blue transition-all duration-300 text-sm py-3"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block mb-3 text-sm">
-                  Description (Optional)
-                </label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what this deck covers..."
-                  className="cyber-surface neon-border-blue focus:neon-glow-blue transition-all duration-300 min-h-[80px] text-sm resize-none"
-                />
-              </div>
-
-              {/* Card Count Selector for AI */}
-              {onCreateDeckWithAI && (
-                <div>
-                  <label className="block mb-3 text-sm">
-                    Number of Cards to Generate
-                  </label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {cardCountOptions.map((count) => (
-                      <motion.button
-                        key={count}
-                        onClick={() => setCardCount(count)}
-                        className={`py-2 px-3 rounded-lg text-sm transition-all duration-200 ${
-                          cardCount === count
-                            ? 'cyber-gradient text-white neon-glow-blue'
-                            : 'cyber-surface neon-border-blue hover:bg-secondary/50'
-                        }`}
-                        whileTap={{ scale: 0.95 }}
-                        whileHover={{ scale: 1.05 }}
-                      >
-                        {count}
-                      </motion.button>
-                    ))}
-                  </div>
+                <div className="flex bg-secondary/30 p-1 rounded-xl border border-white/5 backdrop-blur-sm">
+                  {(['static', 'mcq', 'dynamic'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setSelectedMode(m)}
+                      className={`
+                        flex-1 px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                        ${selectedMode === m 
+                          ? 'bg-[var(--neon-blue)] text-white shadow-[0_0_15px_rgba(0,210,255,0.3)]' 
+                          : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                        }
+                      `}
+                    >
+                      {m}
+                    </button>
+                  ))}
                 </div>
+                {selectedMode === 'dynamic' && (
+                  <p className="mt-2 text-xs text-purple-400">
+                    No decks. No flashcards. Just drop in a topic and let our adaptive AI tutor guide you through personalized, real-time training.
+                  </p>
+                )}
+                {selectedMode === 'mcq' && (
+                  <p className="mt-2 text-xs text-magenta-400">
+                    Create multiple-choice questions. AI will automatically generate dynamic distractors for you during your study sessions.
+                  </p>
+                )}
+              </div>
+
+              {selectedMode !== 'dynamic' && (
+                <>
+                  {/* Title Input */}
+                  <div>
+                    <label className="block mb-3 text-sm">
+                      Deck Title
+                    </label>
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., JavaScript Fundamentals, Spanish Vocabulary..."
+                      className="cyber-surface neon-border-blue focus:neon-glow-blue transition-all duration-300 text-sm py-3"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block mb-3 text-sm">
+                      Description (Optional)
+                    </label>
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Describe what this deck covers..."
+                      className="cyber-surface neon-border-blue focus:neon-glow-blue transition-all duration-300 min-h-[80px] text-sm resize-none"
+                    />
+                  </div>
+
+                  {/* Card Count Selector for AI */}
+                  {onCreateDeckWithAI && (
+                    <div>
+                      <label className="block mb-3 text-sm">
+                        Number of Cards to Generate
+                      </label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {cardCountOptions.map((count) => (
+                          <motion.button
+                            key={count}
+                            onClick={() => setCardCount(count)}
+                            className={`py-2 px-3 rounded-lg text-sm transition-all duration-200 ${
+                              cardCount === count
+                                ? 'cyber-gradient text-white neon-glow-blue'
+                                : 'cyber-surface neon-border-blue hover:bg-secondary/50'
+                            }`}
+                            whileTap={{ scale: 0.95 }}
+                            whileHover={{ scale: 1.05 }}
+                          >
+                            {count}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </AnimatedCard>
         </motion.div>
 
         {/* AI Generation Info Card */}
-        {onCreateDeckWithAI && (
+        {onCreateDeckWithAI && selectedMode !== 'dynamic' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -197,15 +223,15 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
                     <Sparkles className="w-4 h-4" />
                   </h4>
                   <p className="text-xs text-white/80 leading-relaxed">
-                    Our AI will automatically create {cardCount} flashcards based on your topic. 
+                    Our AI will automatically create {cardCount} {selectedMode === 'mcq' ? 'multiple-choice ' : ''}flashcards based on your topic. 
                     You can edit and customize them after generation.
                   </p>
                   
                   {/* Features list */}
                   <div className="mt-3 space-y-1">
                     {[
-                      'Smart question generation',
-                      'Contextual answers',
+                      selectedMode === 'mcq' ? 'Multiple-choice generation' : 'Smart question generation',
+                      selectedMode === 'mcq' ? 'Dynamic options' : 'Contextual answers',
                       'Difficulty progression'
                     ].map((feature, index) => (
                       <motion.div
@@ -226,115 +252,6 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
           </motion.div>
         )}
 
-        {/* PDF Upload Info Card */}
-        {onCreateDeckFromPDF && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.5 }}
-          >
-            <AnimatedCard 
-              variant="cyber" 
-              className="p-6 mb-6"
-              delay={0.35}
-              glowing={true}
-            >
-              <div className="space-y-4">
-                <div className="flex items-start gap-4">
-                  <motion.div
-                    className="flex-shrink-0"
-                    animate={{ 
-                      rotate: [0, 360],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ 
-                      rotate: { duration: 4, repeat: Infinity, ease: 'linear' },
-                      scale: { duration: 2, repeat: Infinity, ease: 'easeInOut' }
-                    }}
-                  >
-                    <FileText className="w-6 h-6 text-white" />
-                  </motion.div>
-                  <div className="flex-1">
-                    <h4 className="text-sm mb-2 text-white flex items-center gap-2">
-                      Generate from PDF
-                      <Sparkles className="w-4 h-4" />
-                    </h4>
-                    <p className="text-xs text-white/80 leading-relaxed">
-                      Upload a PDF document and AI will extract {cardCount} flashcards from the content.
-                    </p>
-                    
-                    {/* Features list */}
-                    <div className="mt-3 space-y-1">
-                      {[
-                        'Automatic content extraction',
-                        'Intelligent question generation',
-                        'Comprehensive coverage'
-                      ].map((feature, index) => (
-                        <motion.div
-                          key={feature}
-                          className="flex items-center gap-2 text-xs text-white/70"
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.45 + index * 0.1 }}
-                        >
-                          <Zap className="w-3 h-3" />
-                          {feature}
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* File Upload Section */}
-                <div className="pt-4 border-t border-white/20">
-                  <label className="block mb-2 text-xs text-white/80">
-                    Select PDF File
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                      id="pdf-upload"
-                    />
-                    <label
-                      htmlFor="pdf-upload"
-                      className="flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed border-white/30 hover:border-white/50 transition-all duration-200 cursor-pointer bg-white/5 hover:bg-white/10"
-                    >
-                      {selectedFile ? (
-                        <>
-                          <File className="w-5 h-5 text-green-400" />
-                          <div className="flex flex-col">
-                            <span className="text-sm text-white font-medium">{selectedFile.name}</span>
-                            <span className="text-xs text-white/50">{(selectedFile.size / 1024).toFixed(1)} KB</span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-5 h-5 text-white/70" />
-                          <span className="text-sm text-white/70">Click or drag PDF here</span>
-                        </>
-                      )}
-                    </label>
-                  </div>
-                  {selectedFile && (
-                    <motion.div 
-                      className="mt-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                    >
-                      <p className="text-xs text-green-400 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                        File ready - {cardCount} cards will be generated
-                      </p>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            </AnimatedCard>
-          </motion.div>
-        )}
 
         {/* Action Buttons */}
         <motion.div 
@@ -343,14 +260,14 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          {/* AI Generation Button */}
+          {/* AI Generation / Dynamic Start Button */}
           {onCreateDeckWithAI && (
             <NeonButton
               onClick={handleGenerateWithAI}
-              disabled={!title.trim() || isBusy}
+              disabled={(selectedMode !== 'dynamic' && !title.trim()) || isBusy}
               className="w-full py-4 flex items-center justify-center gap-3 text-sm"
               animate={true}
-              glowing={!isBusy && title.trim()}
+              glowing={!isBusy && (selectedMode === 'dynamic' || !!title.trim())}
             >
               {isBusy ? (
                 <motion.div
@@ -359,29 +276,7 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
                   animate={{ opacity: 1 }}
                 >
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Generating {cardCount} Cards...</span>
-                  <motion.div
-                    className="flex space-x-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    {[...Array(3)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        className="w-1 h-1 bg-white rounded-full"
-                        animate={{
-                          scale: [1, 1.5, 1],
-                          opacity: [0.5, 1, 0.5],
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          delay: i * 0.2,
-                        }}
-                      />
-                    ))}
-                  </motion.div>
+                  <span>Processing...</span>
                 </motion.div>
               ) : (
                 <motion.div
@@ -389,98 +284,50 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
                   whileHover={{ scale: 1.02 }}
                 >
                   <Brain className="w-5 h-5" />
-                  <span>Generate {cardCount} Cards with AI</span>
+                  <span>{selectedMode === 'dynamic' ? 'Start Dynamic AI Session' : `Generate ${cardCount} ${selectedMode === 'mcq' ? 'MCQ ' : ''}Cards with AI`}</span>
                   <Sparkles className="w-4 h-4" />
                 </motion.div>
               )}
             </NeonButton>
           )}
           
-          {/* PDF Upload Button */}
-          {onCreateDeckFromPDF && (
-            <NeonButton
-              onClick={handleUploadPDF}
-              disabled={!selectedFile || isBusy}
-              className="w-full py-4 flex items-center justify-center gap-3 text-sm"
-              animate={true}
-              glowing={!isBusy && selectedFile}
-            >
-              {isBusy ? (
-                <motion.div
-                  className="flex items-center gap-3"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Processing PDF...</span>
-                  <motion.div
-                    className="flex space-x-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    {[...Array(3)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        className="w-1 h-1 bg-white rounded-full"
-                        animate={{
-                          scale: [1, 1.5, 1],
-                          opacity: [0.5, 1, 0.5],
-                        }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          delay: i * 0.2,
-                        }}
-                      />
-                    ))}
-                  </motion.div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  className="flex items-center gap-3"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <FileText className="w-5 h-5" />
-                  <span>Extract {cardCount} Cards from PDF</span>
-                  <Sparkles className="w-4 h-4" />
-                </motion.div>
-              )}
-            </NeonButton>
-          )}
-          
-          {/* Divider */}
-          <div className="flex items-center gap-4 py-2">
-            <div className="flex-1 h-px bg-white/10"></div>
-            <span className="text-xs text-white/40 uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-white/10"></div>
-          </div>
-          
-          {/* Manual Creation Button - Improved */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            <NeonButton
-              variant="secondary"
-              onClick={handleCreateEmptyDeck}
-              disabled={isBusy}
-              className="w-full py-5 flex items-center justify-center gap-3 text-sm bg-white/5 border-white/10 hover:bg-white/10"
-              animate={true}
-            >
+          {/* Manual Creation Section (Hidden if Dynamic Mode) */}
+          {selectedMode !== 'dynamic' && (
+            <>
+              {/* Divider */}
+              <div className="flex items-center gap-4 py-2">
+                <div className="flex-1 h-px bg-white/10"></div>
+                <span className="text-xs text-white/40 uppercase tracking-wider">or</span>
+                <div className="flex-1 h-px bg-white/10"></div>
+              </div>
+              
+              {/* Manual Creation Button */}
               <motion.div
-                className="flex items-center gap-3"
-                whileHover={{ scale: 1.02 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
               >
-                <Plus className="w-5 h-5" />
-                <div className="flex flex-col items-start">
-                  <span>Create Empty Deck</span>
-                  <span className="text-xs text-white/50">Add cards manually later</span>
-                </div>
+                <NeonButton
+                  variant="secondary"
+                  onClick={handleCreateEmptyDeck}
+                  disabled={isBusy}
+                  className="w-full py-5 flex items-center justify-center gap-3 text-sm bg-white/5 border-white/10 hover:bg-white/10"
+                  animate={true}
+                >
+                  <motion.div
+                    className="flex items-center gap-3"
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <Plus className="w-5 h-5" />
+                    <div className="flex flex-col items-start">
+                      <span>{selectedMode === 'mcq' ? 'Create Empty MCQ Deck' : 'Create Empty Deck'}</span>
+                      <span className="text-xs text-white/50">Add cards manually later</span>
+                    </div>
+                  </motion.div>
+                </NeonButton>
               </motion.div>
-            </NeonButton>
-          </motion.div>
+            </>
+          )}
           
           {/* Help text */}
           <motion.p 

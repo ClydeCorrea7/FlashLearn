@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
+import { requestWithRetry } from './rateLimiter';
 import { projectId, publicAnonKey } from './supabase/info'
 
 const supabase = createClient(
@@ -11,7 +12,7 @@ const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-bc46
 // Auth API
 export const authAPI = {
   async signUp(email: string, password: string, name: string) {
-    const response = await fetch(`${API_BASE}/auth/signup`, {
+    const response = await requestWithRetry(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,12 +21,19 @@ export const authAPI = {
       body: JSON.stringify({ email, password, name })
     })
     
-    const data = await response.json()
     if (!response.ok) {
-      throw new Error(data.error || 'Signup failed')
+      let errorMessage = 'Signup failed';
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        errorMessage = data.error || errorMessage;
+      } catch (e) {
+        errorMessage = `Server error (${response.status}): ${text || 'No details'}`;
+      }
+      throw new Error(errorMessage);
     }
     
-    return data
+    const data = await response.json();
   },
 
   async signIn(email: string, password: string) {
@@ -71,16 +79,26 @@ export const decksAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/decks`, {
+    const response = await requestWithRetry(`${API_BASE}/decks`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
     })
 
-    const data = await response.json()
     if (!response.ok) {
-      throw new Error(data.error || 'Failed to fetch decks')
+      let errorMessage = 'Failed to fetch decks';
+      const text = await response.text();
+      try {
+        const data = JSON.parse(text);
+        errorMessage = data.error || errorMessage;
+      } catch (e) {
+        errorMessage = `Server error (${response.status}): ${text || 'No details'}`;
+        if (response.status === 404) errorMessage = "Decks endpoint not found (404).";
+      }
+      throw new Error(errorMessage);
     }
+
+    const data = await response.json();
 
     return data.decks
   },
@@ -91,7 +109,7 @@ export const decksAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/decks`, {
+    const response = await requestWithRetry(`${API_BASE}/decks`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -114,7 +132,7 @@ export const decksAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/decks/${deckId}`, {
+    const response = await requestWithRetry(`${API_BASE}/decks/${deckId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +155,7 @@ export const decksAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/decks/${deckId}`, {
+    const response = await requestWithRetry(`${API_BASE}/decks/${deckId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -161,7 +179,7 @@ export const settingsAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/settings`, {
+    const response = await requestWithRetry(`${API_BASE}/settings`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
@@ -181,7 +199,7 @@ export const settingsAPI = {
       throw new Error('Not authenticated')
     }
 
-    const response = await fetch(`${API_BASE}/settings`, {
+    const response = await requestWithRetry(`${API_BASE}/settings`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
