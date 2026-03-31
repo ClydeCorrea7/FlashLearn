@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { requestWithRetry } from './rateLimiter';
 import { projectId, publicAnonKey } from './supabase/info'
-
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-)
+import { supabase } from './supabase/client';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-bc46df65`
 
@@ -62,6 +57,16 @@ export const authAPI = {
       throw new Error(error.message)
     }
     return data
+  },
+
+  async resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    
+    if (error) {
+      throw new Error(error.message)
+    }
   }
 }
 

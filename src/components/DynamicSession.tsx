@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { NeonButton } from '../NeonButton';
-import { AnimatedCard } from '../AnimatedCard';
+import { NeonButton } from './NeonButton';
+import { AnimatedCard } from './AnimatedCard';
 import { Brain, Send, ArrowLeft, Loader2, Sparkles, User, Bot, Target, Download, Home } from 'lucide-react';
-import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { jsPDF } from 'jspdf';
 
 interface DynamicSessionProps {
@@ -415,7 +415,7 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
       </header>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide mb-40">
          <div className="max-w-3xl mx-auto flex flex-col gap-6 pt-4 pb-32">
             <AnimatePresence initial={false}>
               {messages.map((msg) => (
@@ -519,6 +519,7 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
                 </motion.div>
               )}
             </AnimatePresence>
+            <div className="h-64" /> {/* Robust spacer for fixed input area */}
             <div ref={messagesEndRef} />
          </div>
       </div>
@@ -526,7 +527,7 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
       {/* Input Area */}
       {currentQuestionRef.current && (
         <div 
-          className="shrink-0 p-4 border-t border-white/10 bg-background/90 backdrop-blur-lg fixed left-0 w-full z-20 safe-area-bottom transition-[bottom] duration-100 ease-out"
+          className="shrink-0 p-4 border-t border-white/10 bg-background fixed left-0 w-full z-20 safe-area-bottom transition-[bottom] duration-100 ease-out"
           style={{ bottom: `${keyboardOffset}px` }}
         >
            <div className="max-w-3xl mx-auto flex flex-col gap-2">
@@ -549,7 +550,7 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
                    onChange={e => setInputStr(e.target.value)}
                    disabled={isLoading}
                    placeholder="Formulate response..."
-                   className="flex-1 bg-secondary/50 border border-white/10 rounded-xl px-4 py-4 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-secondary disabled:opacity-50 transition-all pr-12 shadow-xl"
+                   className="flex-1 bg-secondary border border-white/10 rounded-xl px-4 py-4 text-sm focus:outline-none focus:border-purple-500/50 focus:bg-secondary disabled:opacity-50 transition-all pr-12 shadow-xl"
                  />
                  <button
                    type="submit"

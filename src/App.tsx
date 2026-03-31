@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { SimpleAuthScreen } from "./components/SimpleAuthScreen";
+import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { Dashboard } from "./components/Dashboard";
 import { CreateDeckScreen } from "./components/CreateDeckScreen";
@@ -12,7 +13,9 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { PageTransition } from "./components/PageTransition";
 import { DeleteAccountModule } from "./components/DeleteAccountModule";
 import { DeckImportExport } from './components/DeckImportExport';
-import { DynamicSession } from "./components/study/DynamicSession";
+import { ManualScreen } from './components/ManualScreenComponent';
+import { ChangelogScreen } from "./components/ChangelogScreen";
+import { DynamicSession } from "./components/DynamicSession";
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { supabase } from './utils/supabase/client';
 import * as supabaseOps from './utils/supabase/operations';
@@ -65,7 +68,10 @@ type Screen =
   | 'onboarding'
   | 'study-mode'
   | 'settings'
-  | 'purge';
+  | 'reset-password'
+  | 'purge'
+  | 'manual'
+  | 'changelog';
 
 interface UserProgress {
   user_id: string;
@@ -199,6 +205,18 @@ function App() {
 
       if (error) {
         console.error("Session error:", error);
+      }
+
+      // Detect recovery flow
+      const hash = window.location.hash;
+      if (hash && hash.includes('type=recovery')) {
+        setState((prev) => ({
+          ...prev,
+          isAuthenticated: true, // We have a session but need the reset screen
+          currentScreen: "reset-password",
+          isLoading: false,
+        }));
+        return;
       }
 
       if (session?.user) {
@@ -391,7 +409,7 @@ function App() {
   };
 
   const handleCreateDeckWithAI = async (
-    topic: string, 
+    topic: string,
     cardCount: number,
     preferredMode: 'static' | 'mcq' | 'dynamic' = 'static'
   ) => {
@@ -835,12 +853,7 @@ function App() {
     ];
 
     return (
-      <motion.div
-        className="fixed bottom-0 left-0 right-0 cyber-surface border-t-2 border-[var(--neon-blue)] p-3 z-50 safe-area-bottom"
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
+      <div className="fixed bottom-0 left-0 right-0 cyber-surface border-t-2 border-[var(--neon-blue)] p-3 z-50 safe-area-bottom">
         <div className="flex justify-around max-w-md mx-auto">
           {navItems.map((item, index) => {
             const IconComponent = item.icon;
@@ -856,17 +869,11 @@ function App() {
                   }))
                 }
                 className={`flex flex-col items-center p-3 rounded-xl transition-all duration-200 min-w-0 flex-1 ${isActive
-                    ? "cyber-gradient text-white neon-glow-blue"
-                    : "hover:bg-secondary/50 text-muted-foreground"
+                  ? "cyber-gradient text-white neon-glow-blue"
+                  : "hover:bg-secondary/50 text-muted-foreground"
                   }`}
                 whileTap={{ scale: 0.9 }}
                 whileHover={{ scale: 1.02 }}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: index * 0.1,
-                  duration: 0.3,
-                }}
               >
                 <IconComponent className="w-5 h-5 mb-1" />
                 <span className="text-[6px] font-['Press_Start_2P'] text-center">
@@ -876,7 +883,7 @@ function App() {
             );
           })}
         </div>
-      </motion.div>
+      </div>
     );
   };
 
@@ -941,6 +948,7 @@ function App() {
               }
               onOpenDeck={handleOpenDeck}
               onDeleteDeck={handleDeleteDeck}
+              onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
             />
           </PageTransition>
         );
@@ -1003,6 +1011,7 @@ function App() {
                 }))
               }
               onOpenDeck={handleOpenDeck}
+              onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
             />
           </PageTransition>
         );
@@ -1029,6 +1038,7 @@ function App() {
                 }))
               }
               onOpenDeck={handleOpenDeck}
+              onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
             />
           </PageTransition>
         );
@@ -1072,6 +1082,9 @@ function App() {
                   currentScreen: "purge",
                 }))
               }
+              onOpenChangelog={() => 
+                setState(prev => ({ ...prev, currentScreen: 'changelog' }))
+              }
               user={state.user}
               isDeleting={state.isDeleting}
             />
@@ -1091,6 +1104,38 @@ function App() {
               }
               isDeleting={state.isDeleting}
             />
+          </PageTransition>
+        );
+
+      case "manual":
+        return (
+          <PageTransition>
+            <ManualScreen onBack={() => setState((prev) => ({ ...prev, currentScreen: 'dashboard' }))} />
+          </PageTransition>
+        );
+
+      case "changelog":
+        return (
+          <PageTransition>
+            <ChangelogScreen onBack={() => setState((prev) => ({ ...prev, currentScreen: 'settings' }))} />
+          </PageTransition>
+        );
+
+      case "reset-password":
+        return (
+          <ResetPasswordScreen
+            onSuccess={() => {
+              // Reload app to clean URL hash and load dashboard
+              window.location.hash = '';
+              window.location.reload();
+            }}
+          />
+        );
+
+      case "auth":
+        return (
+          <PageTransition>
+            <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
           </PageTransition>
         );
 

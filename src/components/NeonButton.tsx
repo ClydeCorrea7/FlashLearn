@@ -107,7 +107,7 @@ const NeonButton = React.forwardRef<HTMLButtonElement, NeonButtonProps>(({
         }}
       >
         <motion.div
-          className="relative z-10"
+          className="relative z-10 flex items-center justify-center gap-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1, duration: 0.2 }}

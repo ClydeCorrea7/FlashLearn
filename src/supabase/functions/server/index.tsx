@@ -10,7 +10,7 @@ const app = new Hono();
 
 // HIGH-PRIORITY DEBUG ROUTE
 app.get('/_debug_path', (c) => {
-  return c.json({ 
+  return c.json({
     path: c.req.path,
     url: c.req.url,
     method: c.req.method,
@@ -120,7 +120,7 @@ const requireAuth = async (c: Context, next: () => Promise<void>) => {
       // If getUser fails but token format is correct, we'll perform a verified-gateway manual extraction
       // (This works because the request already passed through Supabase Gateway with the correct project anon key)
       console.log('[Hono] Permissive auth: getUser failed', error?.message);
-      
+
       try {
         const payload = JSON.parse(atob(accessToken.split('.')[1]));
         if (payload && payload.sub) {

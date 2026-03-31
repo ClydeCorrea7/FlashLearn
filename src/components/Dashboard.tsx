@@ -19,10 +19,11 @@ interface DashboardProps {
   decks: Deck[];
   onCreateDeck: () => void;
   onOpenDeck: (deckId: string) => void;
+  onOpenManual: () => void;
   onDeleteDeck?: (deckId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpenDeck, onDeleteDeck }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpenDeck, onOpenManual, onDeleteDeck }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -54,15 +55,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
             </h1>
             <p className="text-muted-foreground text-sm">Continue your learning journey</p>
           </div>
-          <NeonButton
-            onClick={onCreateDeck}
-            className="flex items-center gap-2 w-full sm:w-auto justify-center"
-            animate={true}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Create New Deck</span>
-            <span className="sm:hidden">Create Deck</span>
-          </NeonButton>
+          <div className="flex gap-2">
+            <button
+              onClick={onOpenManual}
+              className="flex items-center gap-2 px-4 py-2 border-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 rounded-lg transition-all group font-['Press_Start_2P'] text-[7px]"
+            >
+              <BookOpen className="w-4 h-4 text-white/50 group-hover:text-cyan-400" />
+              <span className="hidden sm:inline">SYSTEM_MANUAL</span>
+            </button>
+            <NeonButton
+              onClick={onCreateDeck}
+              className="flex items-center gap-2 w-full sm:w-auto justify-center"
+              animate={true}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Create New Deck</span>
+              <span className="sm:hidden">Create Deck</span>
+            </NeonButton>
+          </div>
         </motion.div>
 
         {/* Overall Progress Card for Mobile */}

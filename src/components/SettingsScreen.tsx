@@ -2,17 +2,20 @@ import React from 'react';
 import { Card } from './ui/card';
 import { Switch } from './ui/switch';
 import { NeonButton } from './NeonButton';
-import { ArrowLeft, Moon, Sun, Bell, User, Shield, HelpCircle, LogOut, Trash2, AlertTriangle, ChevronRight, Copy, CheckCircle2, BookOpen, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Bell, User, Shield, HelpCircle, LogOut, Trash2, AlertTriangle, ChevronRight, Copy, CheckCircle2, BookOpen, Mail, ShieldCheck, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from './ThemeProvider';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { DeleteAccountModule } from './DeleteAccountModule';
+import { RecoverySuccessScreen } from './RecoverySuccessScreen';
+import { authAPI } from '../utils/api';
 
 interface SettingsScreenProps {
   onBack: () => void;
   onSignOut: () => void;
   onStartPurge: () => void;
+  onOpenChangelog: () => void;
   user?: any;
   isDeleting?: boolean;
 }
@@ -21,10 +24,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onBack, 
   onSignOut, 
   onStartPurge, 
+  onOpenChangelog,
   user, 
   isDeleting = false 
 }) => {
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -43,38 +48,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     toast.success('Email copied to clipboard!');
   };
 
-  const ManualContent = () => (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/20">
-        <div className="p-2 bg-[var(--neon-blue)]/20 rounded-lg">
-          <BookOpen className="w-5 h-5 text-[var(--neon-blue)]" />
-        </div>
-        <div>
-          <h3 className="font-bold text-[var(--neon-blue)]">User Manual</h3>
-          <p className="text-xs text-white/50 uppercase tracking-widest font-['Press_Start_2P']">Card Generation</p>
-        </div>
-      </div>
 
-      <div className="space-y-4">
-        {[
-          { step: 1, title: 'Enter a Topic', text: 'On the Create Deck screen, enter the subject you want to learn (e.g., "Quantum Physics").' },
-          { step: 2, title: 'Select Capacity', text: 'Choose how many cards you want the AI to generate (5, 10, or 15 cards).' },
-          { step: 3, title: 'Generate', text: 'Tap "Generate with AI". Our engine will research the topic and build high-quality flashcards.' },
-          { step: 4, title: 'Review & Save', text: 'Your new deck will appear instantly. You can edit any card to add personal notes or images.' }
-        ].map((item) => (
-          <div key={item.step} className="flex gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 font-bold text-[var(--neon-blue)]">
-              {item.step}
-            </div>
-            <div>
-              <p className="font-bold text-sm mb-1">{item.title}</p>
-              <p className="text-sm text-white/60 leading-relaxed">{item.text}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
   const SupportContent = () => (
     <div className="space-y-6">
@@ -118,70 +92,35 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     </div>
   );
 
-  const ChangelogContent = () => {
-    const [openVersion, setOpenVersion] = useState<string | null>('1.2.1');
-    
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-          <div className="p-2 bg-cyan-500/20 rounded-lg">
-            <BookOpen className="w-5 h-5 text-cyan-400" />
-          </div>
-          <div>
-            <h3 className="font-bold text-cyan-400 text-lg">System Logs</h3>
-            <p className="text-[9px] text-white/40 uppercase tracking-[0.2em] font-['Press_Start_2P']">Release Registry</p>
-          </div>
-        </div>
 
-        <div className="space-y-3">
-          {[
-            { version: '1.2.1', description: 'Dynamic Learning Stability', changes: ['Deep UI Polishing for Dynamic Sessions', 'Fixed Input Box/Keyboard overlap on mobile', 'Added Gradient Styling to Session Headers', 'Stability and HMR persistence improvements'] },
-            { version: '1.2.0', description: 'Dynamic Learning Engine', changes: ['AI Dynamic Learning Sessions introduced', 'PDF Transcript Export for tutoring', 'Adaptive Personality for AI Tutor', 'Real-time Round Tracking'] },
-            { version: '1.1.1', description: 'AI Core Refinement', changes: ['Performance optimization for Supabase calls', 'Fixed AI Generation timeout issues', 'General Stability Refinement'] },
-            { version: '1.1.0', description: 'MCQ & Progress', changes: ['MCQ Mode implemented with AI distractors', 'Mastered Status Persistence logic', 'Standardized Deck Naming Convention'] },
-            { version: '1.0.0', description: 'Initial Launch', changes: ['Initial Release', 'AI Core Flashcard Generation', 'Cyber-Aesthetic Dashboard UI'] }
-          ].map((release) => (
-            <div key={release.version} className={`rounded-xl border transition-all duration-300 overflow-hidden ${openVersion === release.version ? 'bg-white/10 border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/[0.07]'}`}>
-              <button 
-                onClick={() => setOpenVersion(openVersion === release.version ? null : release.version)}
-                className="w-full flex items-center justify-between p-4 text-left"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-cyan-400 font-bold text-sm">v{release.version}</span>
-                    <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <span className="text-xs text-white/60 font-medium">{release.description}</span>
-                  </div>
-                </div>
-                <ChevronRight className={`w-4 h-4 text-white/20 transition-transform duration-300 ${openVersion === release.version ? 'rotate-90 text-cyan-400' : ''}`} />
-              </button>
-              
-              <AnimatePresence>
-                {openVersion === release.version && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                  >
-                    <div className="px-5 pb-5 border-t border-white/5 pt-4">
-                      <ul className="space-y-3">
-                        {release.changes.map((change, i) => (
-                          <li key={i} className="text-xs text-white/50 flex items-start gap-3 leading-relaxed">
-                            <span className="w-1 h-1 rounded-full bg-cyan-500/50 mt-1.5 shrink-0" />
-                            {change}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+
+  const [lastResetRequest, setLastResetRequest] = useState<number>(0);
+  const cooldownPeriod = 60000; // 1 minute
+
+  const handleResetPassword = async () => {
+    if (!user?.email) return;
+    
+    const now = Date.now();
+    if (now - lastResetRequest < cooldownPeriod) {
+      const remaining = Math.ceil((cooldownPeriod - (now - lastResetRequest)) / 1000);
+      toast.error(`Please wait ${remaining} seconds before requesting again.`);
+      return;
+    }
+
+    const loadingToast = toast.loading('Sending reset email...');
+    try {
+      await authAPI.resetPassword(user.email);
+      setLastResetRequest(Date.now());
+      toast.dismiss(loadingToast);
+      setShowResetModal(true);
+    } catch (err: any) {
+      toast.dismiss(loadingToast);
+      if (err.status === 429 || err.message?.includes('429')) {
+        toast.error('Too Many Requests: Please wait a minute before trying again.');
+      } else {
+        toast.error(err.message || 'Failed to send reset email');
+      }
+    }
   };
 
   const handleSignOut = () => {
@@ -234,6 +173,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <LogOut className="w-4 h-4" />
                   Sign Out
                 </NeonButton>
+                <NeonButton
+                  variant="secondary"
+                  onClick={handleResetPassword}
+                  className="flex items-center gap-2 w-full justify-center mt-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  Reset Password
+                </NeonButton>
               </div>
             </Card>
           )}
@@ -283,16 +230,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               Help & Support
             </h3>
             <div className="space-y-3">
-              <button 
-                onClick={() => setActiveTab('manual')}
-                className="w-full text-left p-3 rounded-lg hover:bg-secondary/20 transition-colors flex justify-between items-center group"
-              >
-                <div>
-                  <p className="group-hover:text-[var(--neon-blue)] transition-colors">How to Use FlashLearn</p>
-                  <p className="text-sm text-muted-foreground">Learn about features and best practices</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-[var(--neon-blue)]" />
-              </button>
+
               <button 
                 onClick={() => setActiveTab('support')}
                 className="w-full text-left p-3 rounded-lg hover:bg-secondary/20 transition-colors flex justify-between items-center group"
@@ -314,12 +252,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-[var(--neon-blue)]" />
               </button>
               <button 
-                onClick={() => setActiveTab('changelog')}
+                onClick={onOpenChangelog}
                 className="w-full text-left p-3 rounded-lg hover:bg-secondary/20 transition-colors flex justify-between items-center group"
               >
                 <div>
                   <p className="group-hover:text-[var(--neon-blue)] transition-colors">Change Logs</p>
-                  <p className="text-sm text-muted-foreground">See what's new in v1.2.1</p>
+                  <p className="text-sm text-muted-foreground">See what's new in v1.2.3</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-[var(--neon-blue)]" />
               </button>
@@ -349,10 +287,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </button>
 
                   <div className="mt-4">
-                    {activeTab === 'manual' && <ManualContent />}
+
                     {activeTab === 'support' && <SupportContent />}
                     {activeTab === 'privacy' && <PrivacyContent />}
-                    {activeTab === 'changelog' && <ChangelogContent />}
                   </div>
 
                   <div className="mt-8">
@@ -403,7 +340,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <span className="text-white">FL</span>
               </div>
               <h4>FlashLearn</h4>
-              <p className="text-sm text-muted-foreground">Version 1.2.1</p>
+              <p className="text-sm text-muted-foreground">Version 1.2.2</p>
               <p className="text-xs text-muted-foreground">
                 AI-Powered Flashcards for Smarter Learning
               </p>
@@ -411,6 +348,52 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </Card>
         </div>
       </div>
+
+      {/* Reset Password Success Modal */}
+      <AnimatePresence>
+        {showResetModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="cyber-surface max-w-md w-full p-8 neon-border-blue text-center relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)]" />
+              
+              <div className="relative z-10">
+                <div className="w-20 h-20 rounded-full bg-cyan-500/10 mx-auto flex items-center justify-center mb-6 neon-glow-blue border border-cyan-500/40">
+                  <Mail className="w-10 h-10 text-[var(--neon-blue)]" />
+                </div>
+                
+                <h3 className="text-3xl font-bold mb-4 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
+                  Recovery Sent
+                </h3>
+                
+                <p className="text-white/80 text-base mb-8 leading-relaxed px-2">
+                  A secure recovery link has been dispatched to:<br/>
+                  <span className="text-[var(--neon-blue)] font-bold text-lg block my-3 p-3 rounded-lg bg-[var(--neon-blue)]/5 border border-[var(--neon-blue)]/20 break-all">
+                    {user?.email}
+                  </span>
+                  Please verify your inbox and follow the instructions to secure your account.
+                </p>
+                
+                <NeonButton 
+                  onClick={() => setShowResetModal(false)}
+                  className="w-full py-4 font-bold tracking-[0.2em] text-sm"
+                  glowing={true}
+                >
+                  OKAY, GOT IT
+                </NeonButton>
+              </div>
+              
+              {/* Background Glows */}
+              <div className="absolute -top-10 -left-10 w-48 h-48 bg-[var(--neon-purple)]/5 rounded-full blur-3xl" />
+              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[var(--neon-blue)]/5 rounded-full blur-3xl" />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

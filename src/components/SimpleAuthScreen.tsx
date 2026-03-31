@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { NeonButton } from './NeonButton';
 import { PasswordInput } from './PasswordInput';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Brain, Sparkles, Loader2, Mail, Lock, User } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
+import { RecoverySuccessScreen } from './RecoverySuccessScreen';
 
 interface SimpleAuthScreenProps {
   onAuthSuccess: (userData: { name: string; email: string }) => void;
@@ -13,8 +14,10 @@ interface SimpleAuthScreenProps {
 
 export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -27,10 +30,47 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
     if (error) setError('');
   };
 
+  const [lastResetRequest, setLastResetRequest] = useState<number>(0);
+  const cooldownPeriod = 60000; // 1 minute
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      setError('Please fill in all required fields');
+    if (!formData.email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    if (isForgotPassword) {
+      const now = Date.now();
+      if (now - lastResetRequest < cooldownPeriod) {
+        const remaining = Math.ceil((cooldownPeriod - (now - lastResetRequest)) / 1000);
+        setError(`Please wait ${remaining}s before requesting another link`);
+        return;
+      }
+
+      setIsLoading(true);
+      setError('');
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(formData.email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (resetError) throw resetError;
+        setLastResetRequest(Date.now());
+        setShowSuccessModal(true);
+      } catch (err: any) {
+        if (err.status === 429 || err.message?.includes('429')) {
+           setError('Too many requests. Please wait 1 minute.');
+        } else {
+           setError(err.message || 'Failed to send reset link');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    if (!formData.password) {
+      setError('Please enter your password');
       return;
     }
 
@@ -104,9 +144,23 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
+    setIsForgotPassword(false);
     setError('');
     setFormData({ name: '', email: '', password: '' });
   };
+
+  if (showSuccessModal) {
+    return (
+      <RecoverySuccessScreen 
+        email={formData.email} 
+        onBack={() => {
+          setShowSuccessModal(false);
+          setIsForgotPassword(false);
+          setIsLogin(true);
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--cyber-bg)] via-[var(--background)] to-[var(--cyber-bg)] flex items-center justify-center p-4">
@@ -146,26 +200,30 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
             </div>
             <motion.h2 
               className="mb-2 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent"
-              key={isLogin ? 'login' : 'signup'}
+              key={isForgotPassword ? 'forgot' : isLogin ? 'login' : 'signup'}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {isLogin ? 'Welcome Back' : 'Join FlashLearn'}
+              {isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome Back' : 'Join FlashLearn'}
             </motion.h2>
             <motion.p 
               className="text-muted-foreground text-sm"
-              key={isLogin ? 'login-desc' : 'signup-desc'}
+              key={isForgotPassword ? 'forgot-desc' : isLogin ? 'login-desc' : 'signup-desc'}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
             >
-              {isLogin ? 'Sign in to continue your learning journey' : 'Create your account to get started'}
+              {isForgotPassword 
+                ? 'Enter your email to receive a recovery link' 
+                : isLogin 
+                  ? 'Sign in to continue your learning journey' 
+                  : 'Create your account to get started'}
             </motion.p>
           </motion.div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+            {!isLogin && !isForgotPassword && (
               <motion.div
                 initial={{ opacity: 0, height: 0, y: -10 }}
                 animate={{ opacity: 1, height: 'auto', y: 0 }}
@@ -180,7 +238,7 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     placeholder="Your full name"
-                    className="pl-10 cyber-surface neon-border-blue focus:neon-glow-blue"
+                    className="pl-10 cyber-surface neon-border-blue focus:neon-glow-blue text-white"
                     disabled={isLoading}
                   />
                 </div>
@@ -200,27 +258,41 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="your@email.com"
-                  className="pl-10 cyber-surface neon-border-blue focus:neon-glow-blue"
+                  className="pl-10 cyber-surface neon-border-blue focus:neon-glow-blue text-white"
                   disabled={isLoading}
+                  required
                 />
               </div>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-            >
-              <label className="block text-sm mb-2">Password</label>
-              <PasswordInput
-                value={formData.password}
-                onChange={(value) => handleInputChange('password', value)}
-                placeholder="••••••••"
-                className="cyber-surface neon-border-blue focus:neon-glow-blue"
-                disabled={isLoading}
-                leftIcon={<Lock className="w-4 h-4" />}
-              />
-            </motion.div>
+            {!isForgotPassword && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm">Password</label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => setIsForgotPassword(true)}
+                      className="text-[10px] text-[var(--neon-purple)] hover:text-[var(--neon-blue)] transition-colors uppercase font-mono tracking-tighter"
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
+                <PasswordInput
+                  value={formData.password}
+                  onChange={(value) => handleInputChange('password', value)}
+                  placeholder="••••••••"
+                  className="cyber-surface neon-border-blue focus:neon-glow-blue text-white"
+                  disabled={isLoading}
+                  leftIcon={<Lock className="w-4 h-4" />}
+                />
+              </motion.div>
+            )}
 
             {error && (
               <motion.div 
@@ -248,10 +320,10 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    {isLogin ? 'Signing In...' : 'Creating Account...'}
+                    {isForgotPassword ? 'Sending...' : isLogin ? 'Signing In...' : 'Creating...'}
                   </>
                 ) : (
-                  isLogin ? 'Sign In' : 'Create Account'
+                  isForgotPassword ? 'Send Recovery Link' : isLogin ? 'Sign In' : 'Create Account'
                 )}
               </NeonButton>
             </motion.div>
@@ -264,17 +336,21 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
             transition={{ delay: 0.4, duration: 0.3 }}
           >
             <p className="text-muted-foreground text-sm mb-2">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}
+              {isForgotPassword 
+                ? "Remember your password?" 
+                : isLogin 
+                  ? "Don't have an account?" 
+                  : "Already have an account?"}
             </p>
             <motion.button
               type="button"
-              onClick={toggleAuthMode}
+              onClick={isForgotPassword ? () => setIsForgotPassword(false) : toggleAuthMode}
               className="text-[var(--neon-blue)] hover:text-[var(--neon-purple)] transition-colors text-sm"
               disabled={isLoading}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {isLogin ? 'Create Account' : 'Sign In'}
+              {isForgotPassword ? 'Back to Sign In' : isLogin ? 'Create Account' : 'Sign In'}
             </motion.button>
           </motion.div>
         </Card>
