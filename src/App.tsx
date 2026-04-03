@@ -182,7 +182,7 @@ function App() {
     isDeleting: false,
     notifications: [],
     unreadNotificationsCount: 0,
-    initialChoice: 'selection',
+    initialChoice: 'auth',
   });
 
   // PWA installation support
@@ -1020,75 +1020,25 @@ function App() {
 
   const renderCurrentScreen = () => {
     if (!state.isAuthenticated) {
-      if (state.initialChoice === 'selection') {
-        return (
-          <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 space-y-12">
-            <motion.div
-              className="text-center space-y-4"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <h1 className="text-2xl font-black bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent uppercase tracking-[0.2em] font-['Press_Start_2P']">
-                FlashLearn
-              </h1>
-              <p className="text-[8px] text-muted-foreground uppercase tracking-widest font-['Press_Start_2P']">
-                Neural Learning Protocol
-              </p>
-            </motion.div>
-
-            <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-                onClick={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
-              >
-                <div className="cyber-surface p-6 rounded-2xl border border-border/50 hover:neon-border-blue transition-all cursor-pointer group">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className="p-4 bg-[var(--neon-blue)]/20 rounded-xl group-hover:neon-glow-blue transition-all">
-                      <BookOpen className="w-10 h-10 text-[var(--neon-blue)]" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground mb-1">Neural Notes</h3>
-                      <p className="text-[10px] text-muted-foreground font-medium">Generate professional notes instantly (No Login Required)</p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                onClick={() => setState(prev => ({ ...prev, initialChoice: 'auth' }))}
-              >
-                <div className="cyber-surface p-6 rounded-2xl border border-border/50 hover:neon-border-purple transition-all cursor-pointer group">
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className="p-4 bg-[var(--neon-purple)]/20 rounded-xl group-hover:neon-glow-purple transition-all">
-                      <Zap className="w-10 h-10 text-[var(--neon-purple)]" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground mb-1">Flashcard Sync</h3>
-                      <p className="text-[10px] text-muted-foreground font-medium">Save decks, track progress, & adaptive study (Login Required)</p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        );
-      }
-
       if (state.initialChoice === 'notes') {
         return (
-          <NotesPageScreen
-            onBack={() => setState(prev => ({ ...prev, initialChoice: 'selection' }))}
-            isAuthenticated={state.isAuthenticated}
-          />
+          <PageTransition>
+            <NotesPageScreen
+              onBack={() => setState(prev => ({ ...prev, initialChoice: 'auth' }))}
+              isAuthenticated={state.isAuthenticated}
+            />
+          </PageTransition>
         );
       }
 
-      return <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />;
+      return (
+        <PageTransition>
+          <SimpleAuthScreen 
+            onAuthSuccess={handleAuthSuccess} 
+            onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
+          />
+        </PageTransition>
+      );
     }
 
     switch (state.currentScreen) {
@@ -1376,14 +1326,20 @@ function App() {
       case "auth":
         return (
           <PageTransition>
-            <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
+            <SimpleAuthScreen 
+              onAuthSuccess={handleAuthSuccess} 
+              onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
+            />
           </PageTransition>
         );
 
       default:
         return (
           <PageTransition>
-            <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
+            <SimpleAuthScreen 
+              onAuthSuccess={handleAuthSuccess} 
+              onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
+            />
           </PageTransition>
         );
     }

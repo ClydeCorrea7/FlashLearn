@@ -4,16 +4,17 @@ import { NeonButton } from './NeonButton';
 import { PasswordInput } from './PasswordInput';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
-import { Brain, Sparkles, Loader2, Mail, Lock, User } from 'lucide-react';
+import { Brain, Sparkles, Loader2, Mail, Lock, User, BookOpen } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import { RecoverySuccessScreen } from './RecoverySuccessScreen';
 import { checkEmailExists } from '../utils/supabase/operations';
 
 interface SimpleAuthScreenProps {
   onAuthSuccess: (userData: { name: string; email: string }) => void;
+  onStartNotes: () => void;
 }
 
-export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSuccess }) => {
+export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSuccess, onStartNotes }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -388,6 +389,19 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
               {isForgotPassword ? 'Back to Sign In' : isLogin ? 'Create Account' : 'Sign In'}
             </motion.button>
           </motion.div>
+          <div className="mt-8 border-t border-border/50 pt-6">
+            <p className="text-center text-[10px] text-muted-foreground uppercase tracking-widest font-bold mb-4">
+              Or continue as guest
+            </p>
+            <NeonButton
+              variant="secondary"
+              onClick={onStartNotes}
+              className="w-full flex items-center justify-center gap-2 group opacity-80 hover:opacity-100"
+            >
+              <BookOpen className="w-4 h-4 group-hover:animate-pulse" />
+              Access Neural Notes
+            </NeonButton>
+          </div>
         </Card>
       </motion.div>
     </div>
