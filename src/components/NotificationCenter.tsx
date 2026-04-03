@@ -44,11 +44,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
           <div
             key={n.id}
             className={cn(
-              'px-4 py-2 rounded-md shadow-lg animate-pulse-glow',
-              n.type === 'info' && 'bg-[var(--neon-blue)] text-white',
-              n.type === 'success' && 'bg-green-500 text-white',
-              n.type === 'error' && 'bg-red-600 text-white',
-              n.type === 'warning' && 'bg-yellow-500 text-white'
+              'px-4 py-3 rounded-xl shadow-2xl font-bold border-2 transition-all duration-300 max-w-[300px] text-xs',
+              n.type === 'info' && 'cyber-gradient text-foreground border-border',
+              n.type === 'success' && 'bg-emerald-500/90 text-white border-emerald-400',
+              n.type === 'error' && 'bg-rose-500/90 text-white border-rose-400',
+              n.type === 'warning' && 'bg-amber-500/90 text-black border-amber-400'
             )}
           >
             {n.message}

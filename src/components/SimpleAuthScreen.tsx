@@ -7,6 +7,7 @@ import { Input } from './ui/input';
 import { Brain, Sparkles, Loader2, Mail, Lock, User } from 'lucide-react';
 import { supabase } from '../utils/supabase/client';
 import { RecoverySuccessScreen } from './RecoverySuccessScreen';
+import { checkEmailExists } from '../utils/supabase/operations';
 
 interface SimpleAuthScreenProps {
   onAuthSuccess: (userData: { name: string; email: string }) => void;
@@ -17,7 +18,6 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -51,12 +51,34 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
       setIsLoading(true);
       setError('');
       try {
+        const exists = await checkEmailExists(formData.email);
+        if (!exists) {
+           setError('This email is not registered with FlashLearn.');
+           setIsLoading(false);
+           return;
+        }
+
+        // Explicitly handle production vs local redirection
+        const origin = window.location.origin;
+        const isProduction = origin.includes('vercel.app') || origin.includes('flash-learn-iota');
+        
+        // Environment variable takes precedence, otherwise use origin-based logic
+        const resetRedirect = import.meta.env.VITE_AUTH_REDIRECT_URL || 
+          (isProduction 
+            ? 'https://flash-learn-iota.vercel.app/#reset-password' 
+            : `${origin}/#reset-password`);
+
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(formData.email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: resetRedirect,
         });
         if (resetError) throw resetError;
         setLastResetRequest(Date.now());
-        setShowSuccessModal(true);
+        
+        // Native browser alert instead of RecoverySuccessScreen component
+        alert(`Recovery Protocol Dispatched!\nA secure recovery link has been sent to: ${formData.email}.\n\nPlease verify your inbox and follow the instructions to secure your account.`);
+        
+        setIsForgotPassword(false);
+        setIsLogin(true);
       } catch (err: any) {
         if (err.status === 429 || err.message?.includes('429')) {
            setError('Too many requests. Please wait 1 minute.');
@@ -95,16 +117,27 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
         if (signInError) {
           throw new Error(signInError.message);
         }
+
+        if (data.user && !data.user.email_confirmed_at) {
+          setError('Email not verified. Please check your inbox or resend code.');
+          setIsLoading(false);
+          return;
+        }
         
         result = {
           name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0] || 'User',
           email: data.user?.email || formData.email
         };
       } else {
-        // Sign up with Supabase - simplified, no metadata
+        // Sign up with Supabase - including name metadata
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
+          options: {
+            data: {
+              name: formData.name
+            }
+          }
         });
         
         if (signUpError) {
@@ -112,31 +145,37 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
           throw new Error(signUpError.message);
         }
         
-        if (signUpData.user) {
-          result = {
-            name: formData.name || signUpData.user.email?.split('@')[0] || 'User',
-            email: signUpData.user.email || formData.email
-          };
-          
-          // Update user metadata after signup (separate call)
-          if (formData.name) {
-            try {
-              await supabase.auth.updateUser({
-                data: { name: formData.name }
-              });
-            } catch (metaError) {
-              console.warn("Could not update user metadata:", metaError);
-            }
-          }
-        } else {
-          throw new Error('Signup completed but user data not returned. Please try signing in.');
-        }
+        // Inform user about email confirmation
+        alert(`Access Protocol Initiated!\nA synchronization link has been dispatched to: ${formData.email}.\n\nPlease verify your email to activate your neural link and complete the onboarding process.`);
+        setIsLogin(true);
+        setIsLoading(false);
+        return;
       }
       
       onAuthSuccess(result);
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message || 'Authentication failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!formData.email) {
+      setError('Please enter your email to resend confirmation');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: formData.email
+      });
+      if (resendError) throw resendError;
+      alert(`Re-dispatch successful. Please check ${formData.email} for your access protocol.`);
+    } catch (err: any) {
+      setError(err.message || 'Resend failed');
     } finally {
       setIsLoading(false);
     }
@@ -149,18 +188,6 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
     setFormData({ name: '', email: '', password: '' });
   };
 
-  if (showSuccessModal) {
-    return (
-      <RecoverySuccessScreen 
-        email={formData.email} 
-        onBack={() => {
-          setShowSuccessModal(false);
-          setIsForgotPassword(false);
-          setIsLogin(true);
-        }} 
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[var(--cyber-bg)] via-[var(--background)] to-[var(--cyber-bg)] flex items-center justify-center p-4">
@@ -302,6 +329,14 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
                 {error}
+                {error.includes('verified') && (
+                  <button 
+                    onClick={handleResendConfirmation}
+                    className="block mx-auto mt-2 text-[10px] text-[var(--neon-blue)] hover:underline uppercase font-bold"
+                  >
+                    Resend Confirmation Email
+                  </button>
+                )}
               </motion.div>
             )}
 

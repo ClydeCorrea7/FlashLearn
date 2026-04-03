@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { NeonButton } from './NeonButton';
 import { AnimatedCard } from './AnimatedCard';
 import { Progress } from './ui/progress';
-import { Plus, BookOpen, Clock, TrendingUp, Zap, Brain, Trash2, MoreVertical, X, AlertTriangle } from 'lucide-react';
+import { Plus, BookOpen, Clock, TrendingUp, Zap, Brain, Trash2, MoreVertical, X, AlertTriangle, Layers } from 'lucide-react';
 
 interface Deck {
   id: string;
@@ -20,10 +20,11 @@ interface DashboardProps {
   onCreateDeck: () => void;
   onOpenDeck: (deckId: string) => void;
   onOpenManual: () => void;
+  onOpenStorage: () => void;
   onDeleteDeck?: (deckId: string) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpenDeck, onOpenManual, onDeleteDeck }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpenDeck, onOpenManual, onOpenStorage, onDeleteDeck }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -53,15 +54,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
             <h1 className="mb-2 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
               Your Decks
             </h1>
-            <p className="text-muted-foreground text-sm">Continue your learning journey</p>
+            <p className="text-muted-foreground text-sm font-medium">Continue your learning journey</p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={onOpenManual}
-              className="flex items-center gap-2 px-4 py-2 border-2 border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 rounded-lg transition-all group font-['Press_Start_2P'] text-[7px]"
+              className="flex items-center gap-2 px-4 py-2 border-2 border-border hover:border-cyan-500/50 hover:bg-cyan-500/10 rounded-lg transition-all group font-['Press_Start_2P'] text-[7px]"
             >
-              <BookOpen className="w-4 h-4 text-white/50 group-hover:text-cyan-400" />
-              <span className="hidden sm:inline">SYSTEM_MANUAL</span>
+              <BookOpen className="w-4 h-4 text-foreground/50 group-hover:text-cyan-400" />
+              <span className="hidden sm:inline text-foreground">SYSTEM_MANUAL</span>
+            </button>
+            <button
+              onClick={onOpenStorage}
+              className="flex items-center gap-2 px-4 py-2 border-2 border-border hover:border-purple-500/50 hover:bg-purple-500/10 rounded-lg transition-all group font-['Press_Start_2P'] text-[7px]"
+            >
+              <Layers className="w-4 h-4 text-foreground/50 group-hover:text-purple-400" />
+              <span className="hidden sm:inline text-foreground">ARCHIVES</span>
             </button>
             <NeonButton
               onClick={onCreateDeck}
@@ -161,7 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
         {/* Decks Grid */}
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="w-5 h-5 text-muted-foreground" />
-          <h2 className="text-lg font-medium text-white/80">Active Decks</h2>
+          <h2 className="text-lg font-medium text-foreground/80">Active Decks</h2>
         </div>
 
         {decks.length === 0 ? (
@@ -362,22 +370,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ decks, onCreateDeck, onOpe
                         </div>
                       </div>
                     </div>
-
-                    {/* Mobile: Add visual indicator for completion */}
-                    {progress === 100 && (
-                      <motion.div
-                        className="absolute top-2 left-2 w-6 h-6 cyber-gradient rounded-full flex items-center justify-center"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.5 }}
-                      >
-                        <Zap className="w-3 h-3 text-white" />
-                      </motion.div>
-                    )}
                   </AnimatedCard>
                 </motion.div>
               );
             })}
+
+            {/* Storage Portal Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 + decks.length * 0.1, duration: 0.4 }}
+              onClick={onOpenStorage}
+              className="cursor-pointer"
+            >
+              <AnimatedCard
+                className="h-full p-6 cyber-surface border-dashed border-2 border-purple-500/30 hover:border-purple-500/60 hover:bg-purple-500/5 transition-all flex flex-col items-center justify-center text-center group"
+                hover={true}
+              >
+                <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 group-hover:neon-glow-purple transition-all">
+                  <Layers className="w-6 h-6 text-purple-400" />
+                </div>
+                <h3 className="text-sm font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent uppercase tracking-wider mb-2">Deck Storage</h3>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-['Press_Start_2P'] leading-relaxed">
+                  Manage Archives & <br/> Neural Merging
+                </p>
+              </AnimatedCard>
+            </motion.div>
           </motion.div>
         )}
       </div>

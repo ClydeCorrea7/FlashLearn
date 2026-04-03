@@ -2,14 +2,35 @@ import React from 'react';
 import { Card } from './ui/card';
 import { Switch } from './ui/switch';
 import { NeonButton } from './NeonButton';
-import { ArrowLeft, Moon, Sun, Bell, User, Shield, HelpCircle, LogOut, Trash2, AlertTriangle, ChevronRight, Copy, CheckCircle2, BookOpen, Mail, ShieldCheck, Lock } from 'lucide-react';
+import { cn } from './ui/utils';
+import { 
+  ArrowLeft, 
+  Moon, 
+  Sun, 
+  Bell, 
+  User, 
+  Shield, 
+  HelpCircle, 
+  LogOut, 
+  Trash2, 
+  AlertTriangle, 
+  ChevronRight, 
+  Copy, 
+  CheckCircle2, 
+  BookOpen, 
+  Mail, 
+  ShieldCheck, 
+  Lock, 
+  Sparkles, 
+  Sparkle, 
+  History 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useTheme } from './ThemeProvider';
+import { useTheme, type ColorTheme } from './ThemeProvider';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { DeleteAccountModule } from './DeleteAccountModule';
-import { RecoverySuccessScreen } from './RecoverySuccessScreen';
 import { authAPI } from '../utils/api';
+import { APP_VERSION } from './ChangelogScreen';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -29,7 +50,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   isDeleting = false 
 }) => {
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [showResetModal, setShowResetModal] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -48,19 +68,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     toast.success('Email copied to clipboard!');
   };
 
-
-
   const SupportContent = () => (
     <div className="space-y-6">
-      <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10">
+      <div className="text-center p-8 rounded-2xl bg-secondary/30 border border-border">
         <div className="w-16 h-16 bg-[var(--neon-purple)]/20 rounded-full flex items-center justify-center mx-auto mb-4">
           <Mail className="w-8 h-8 text-[var(--neon-purple)]" />
         </div>
-        <h3 className="text-xl font-bold mb-2">Need Help?</h3>
-        <p className="text-sm text-white/60 mb-6">Our support team is ready to assist you with any questions or technical issues.</p>
+        <h3 className="text-xl font-bold mb-2 text-foreground">Need Help?</h3>
+        <p className="text-sm text-muted-foreground mb-6">Our support team is ready to assist you with any questions or technical issues.</p>
         
-        <div className="p-4 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center gap-3">
-          <p className="text-xs uppercase text-white/40 tracking-widest font-['Press_Start_2P']">Official Support Email</p>
+        <div className="p-4 rounded-xl bg-card border border-border flex flex-col items-center gap-3">
+          <p className="text-xs uppercase text-muted-foreground tracking-widest font-['Press_Start_2P']">Official Support Email</p>
           <p className="text-lg font-bold text-[var(--neon-blue)] break-all">clydecorrea78@gmail.com</p>
           <NeonButton onClick={copyEmail} variant="secondary" className="mt-2 flex items-center gap-2">
             <Copy className="w-4 h-4" />
@@ -78,21 +96,89 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <h3 className="font-bold text-green-400">Data Security</h3>
       </div>
       
-      <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
-        <p className="text-sm text-white/80 leading-relaxed">
+      <div className="p-5 rounded-2xl bg-secondary/30 border border-border space-y-4">
+        <p className="text-sm text-foreground/80 leading-relaxed font-medium">
           At FlashLearn, your data security is our top priority. We leverage <span className="text-[var(--neon-blue)] font-bold">Supabase</span>, a world-class backend infrastructure, to ensure your information is protected.
         </p>
-        <p className="text-sm text-white/70 leading-relaxed italic border-l-2 border-white/20 pl-4">
+        <p className="text-sm text-muted-foreground leading-relaxed italic border-l-2 border-border pl-4">
           "Supabase provides enterprise-grade security including Row Level Security (RLS), encrypted storage, and robust authentication protocols. Your flashcards and personal data are stored in isolated environments, ensuring that only you can access your learning material."
         </p>
-        <p className="text-sm text-white/80 leading-relaxed">
+        <p className="text-sm text-foreground/80 leading-relaxed font-medium">
           By utilizing Supabase's secure cloud infrastructure, we guarantee that your study progress and decks are synced safely across all your devices without compromising your privacy.
         </p>
       </div>
     </div>
   );
 
+  const ChromesthesiaContent = () => {
+    const { colorTheme, updateColorTheme } = useTheme();
+    
+    const themeOptions: { id: ColorTheme; label: string; color: string }[] = [
+      { id: 'red', label: 'Blood Red', color: '#ef4444' },
+      { id: 'blue', label: 'Classic Blue', color: '#3b82f6' },
+      { id: 'purple', label: 'Neural Purple', color: '#8b5cf6' },
+      { id: 'green', label: 'Matrix Green', color: '#22c55e' },
+      { id: 'yellow', label: 'Cyber Yellow', color: '#eab308' },
+      { id: 'grey', label: 'Monochrome', color: '#94a3b8' },
+    ];
 
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/20">
+          <Sparkles className="w-6 h-6 text-[var(--neon-blue)] animate-pulse" />
+          <h3 className="font-bold text-[var(--neon-blue)] uppercase tracking-wider font-['Press_Start_2P'] text-[10px]">Neural Presets</h3>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {themeOptions.map((option) => (
+            <motion.button
+              key={option.id}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => updateColorTheme(option.id)}
+              className={cn(
+                "p-4 rounded-xl border-2 transition-all text-left relative overflow-hidden group",
+                colorTheme === option.id 
+                  ? "border-[var(--neon-blue)] bg-[var(--neon-blue)]/10 shadow-[0_0_15px_rgba(59,130,246,0.3)]" 
+                  : "border-border bg-secondary/30 hover:border-border/80"
+              )}
+            >
+              <div 
+                className="w-8 h-8 rounded-full mb-3 shadow-lg" 
+                style={{ backgroundColor: option.color }}
+              />
+              <p className={cn(
+                "text-[10px] font-bold uppercase tracking-widest",
+                colorTheme === option.id ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+              )}>
+                {option.label}
+              </p>
+              
+              {colorTheme === option.id && (
+                <motion.div 
+                  layoutId="active-preset"
+                  className="absolute top-2 right-2"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[var(--neon-blue)]" />
+                </motion.div>
+              )}
+            </motion.button>
+          ))}
+        </div>
+
+        <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
+          <div className="flex gap-3">
+             <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
+             <p className="text-[10px] text-orange-500/80 leading-relaxed font-bold uppercase tracking-widest">
+               Neural sync will automatically calibrate these signatures for both Light and Dark environments.
+             </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const [lastResetRequest, setLastResetRequest] = useState<number>(0);
   const cooldownPeriod = 60000; // 1 minute
@@ -112,7 +198,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       await authAPI.resetPassword(user.email);
       setLastResetRequest(Date.now());
       toast.dismiss(loadingToast);
-      setShowResetModal(true);
+      
+      // Native browser alert instead of custom modal
+      alert(`Recovery Sent!\nA secure recovery link has been dispatched to: ${user.email}.\n\nPlease verify your inbox and follow the instructions to secure your account.`);
+      
     } catch (err: any) {
       toast.dismiss(loadingToast);
       if (err.status === 429 || err.message?.includes('429')) {
@@ -161,8 +250,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </span>
                   </div>
                   <div>
-                    <p>{user.user_metadata?.name || 'FlashLearn User'}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="font-bold text-foreground">
+                      {user.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Learner'}
+                    </p>
+                    <p className="text-sm text-muted-foreground font-medium">{user.email}</p>
                   </div>
                 </div>
                 <NeonButton
@@ -195,7 +286,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <p>Dark Mode</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground font-medium">
                     {theme === 'dark' ? 'Enabled' : 'Disabled'} - Futuristic cyber aesthetic
                   </p>
                 </div>
@@ -203,6 +294,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   checked={theme === 'dark'}
                   onCheckedChange={toggleTheme}
                 />
+              </div>
+
+              <div className="border-t border-border/50 pt-4">
+                <button 
+                  onClick={() => setActiveTab('colors')}
+                  className="w-full text-left p-3 rounded-lg hover:bg-secondary/20 transition-colors flex justify-between items-center group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="w-5 h-5 text-[var(--neon-blue)]" />
+                    <div>
+                      <p className="group-hover:text-[var(--neon-blue)] transition-colors text-foreground font-medium">Neural Chromesthesia</p>
+                      <p className="text-sm text-muted-foreground">Customize neon gradient signatures</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-[var(--neon-blue)]" />
+                </button>
               </div>
             </div>
           </Card>
@@ -256,10 +363,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 className="w-full text-left p-3 rounded-lg hover:bg-secondary/20 transition-colors flex justify-between items-center group"
               >
                 <div>
-                  <p className="group-hover:text-[var(--neon-blue)] transition-colors">Change Logs</p>
-                  <p className="text-sm text-muted-foreground">See what's new in v1.2.3</p>
+                  <p className="group-hover:text-[var(--neon-blue)] transition-colors text-foreground">Change Logs</p>
+                  <p className="text-sm text-muted-foreground">See what's new in v{APP_VERSION}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-[var(--neon-blue)]" />
+                <ChevronRight className="w-4 h-4 text-foreground/20 group-hover:text-[var(--neon-blue)]" />
               </button>
             </div>
           </Card>
@@ -287,9 +394,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </button>
 
                   <div className="mt-4">
-
                     {activeTab === 'support' && <SupportContent />}
                     {activeTab === 'privacy' && <PrivacyContent />}
+                    {activeTab === 'colors' && <ChromesthesiaContent />}
                   </div>
 
                   <div className="mt-8">
@@ -340,7 +447,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 <span className="text-white">FL</span>
               </div>
               <h4>FlashLearn</h4>
-              <p className="text-sm text-muted-foreground">Version 1.2.2</p>
+              <p className="text-sm text-muted-foreground">Version {APP_VERSION}</p>
               <p className="text-xs text-muted-foreground">
                 AI-Powered Flashcards for Smarter Learning
               </p>
@@ -348,52 +455,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </Card>
         </div>
       </div>
-
-      {/* Reset Password Success Modal */}
-      <AnimatePresence>
-        {showResetModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="cyber-surface max-w-md w-full p-8 neon-border-blue text-center relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)]" />
-              
-              <div className="relative z-10">
-                <div className="w-20 h-20 rounded-full bg-cyan-500/10 mx-auto flex items-center justify-center mb-6 neon-glow-blue border border-cyan-500/40">
-                  <Mail className="w-10 h-10 text-[var(--neon-blue)]" />
-                </div>
-                
-                <h3 className="text-3xl font-bold mb-4 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
-                  Recovery Sent
-                </h3>
-                
-                <p className="text-white/80 text-base mb-8 leading-relaxed px-2">
-                  A secure recovery link has been dispatched to:<br/>
-                  <span className="text-[var(--neon-blue)] font-bold text-lg block my-3 p-3 rounded-lg bg-[var(--neon-blue)]/5 border border-[var(--neon-blue)]/20 break-all">
-                    {user?.email}
-                  </span>
-                  Please verify your inbox and follow the instructions to secure your account.
-                </p>
-                
-                <NeonButton 
-                  onClick={() => setShowResetModal(false)}
-                  className="w-full py-4 font-bold tracking-[0.2em] text-sm"
-                  glowing={true}
-                >
-                  OKAY, GOT IT
-                </NeonButton>
-              </div>
-              
-              {/* Background Glows */}
-              <div className="absolute -top-10 -left-10 w-48 h-48 bg-[var(--neon-purple)]/5 rounded-full blur-3xl" />
-              <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[var(--neon-blue)]/5 rounded-full blur-3xl" />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

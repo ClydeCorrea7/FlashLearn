@@ -19,10 +19,71 @@ interface ChangelogScreenProps {
   onBack: () => void;
 }
 
+export const APP_VERSION = '1.3.4';
+
 export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
-  const [openVersion, setOpenVersion] = useState<string | null>('1.2.3');
+  const [openVersion, setOpenVersion] = useState<string | null>(APP_VERSION);
 
   const releases = [
+    {
+      version: '1.3.4',
+      description: 'Neural Presets & Visual Sync',
+      changes: [
+        'Neural Presets: Integrated 6 professionally calibrated color signatures (Red, Blue, Purple, Green, Yellow, Grey)',
+        'Adaptive UI Synchronization: Real-time gradient updates across all buttons, cards, and headers',
+        'Themed Global Scrollbars: Scrollbar thumb and hover aesthetics now adapt to the chosen neural path',
+        'Persistence Protocol: Standardized localStorage archival for all visual customization choices',
+        'Dynamic Variable Injection: Real-time CSS variable manipulation for global neon core colors'
+      ]
+    },
+    {
+      version: '1.3.3',
+      description: 'Archives Hub & Neural Merging',
+      changes: [
+        'Deck Storage Screen: Centralized knowledge vault for managing all created assets',
+        'Neural Merging Engine: Tactical synthesis of two same-type decks into composite signatures',
+        'Light Mode Hardening: Global UI audit and remediation for full accessibility parity',
+        'Archives Portal: Dual entry points via Dashboard card and dedicated navigation header',
+        'Deduplication Protocol: Automatic removal of duplicate signatures during neural merging',
+        'Notification Core: Re-engineered alert system with theme-aware high-contrast components'
+      ]
+    },
+    {
+      version: '1.3.2',
+      description: 'Neural Refinement Protocol',
+      changes: [
+        'Neural Hub Entry: Integrated a "Genesis" selection screen for unauthenticated users',
+        'Guest Protocol: Enabled full Neural Note generation/download for anonymous users',
+        'Automated Vault Archival: Proactive saving protocol for authenticated note generation',
+        'Advanced Tone Engine: Dual-layer tone handling (Hybrid Academic/Teacher logic)',
+        'Boundary Guard (PDF): Strict horizontal and vertical rhythmic enforcement for document exports',
+        'Typography Calibration: Globally scaled PDF font-system (+2pt) for enhanced legibility',
+        'System Manual v1.0.5: Documented Neural Notes protocol and streamlined navigation'
+      ]
+    },
+    {
+      version: '1.3.1',
+      description: 'Neural Security Protocol',
+      changes: [
+        'Mandatory Email Confirmation: Integrated Supabase Auth authorization links for all new accounts',
+        'Intelligent Password Recovery: Integrated real-time registration checks via profiles mirroring',
+        'Direct Database Verification: Switched from auth code checks to direct profiles table querying',
+        'Path-Based Redirection: Optimized /reset-password URL routing for better reliability',
+        'Session Shielding: Automated session invalidation for unverified neural links',
+        'Profile Sync Trigger: PostgreSQL triggers for automatic auth-to-table replication'
+      ]
+    },
+    {
+      version: '1.3.0',
+      description: 'Neural Note Architecture',
+      changes: [
+        'Neural Note Generation: Build high-fidelity academic notes using GPT-4o-mini',
+        'Pixel Hybrid Design: Hybrid aesthetic (Courier headers / Helvetica body) for max readability',
+        'Advanced PDF Engine: Custom jsPDF implementation with structured sectioning and neon accents',
+        'Module Integration: Direct entry point from Create tab',
+        'Topic Validation: 500-character safety limit for optimized AI output quality'
+      ]
+    },
     {
       version: '1.2.3',
       description: 'FlashLearn Pro Protocol',
@@ -71,16 +132,16 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
         >
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-secondary/50 transition-colors border border-white/10"
+            className="p-2 rounded-full hover:bg-secondary/50 transition-colors border border-border"
           >
-            <ChevronLeft className="w-5 h-5 text-white" />
+            <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
             <h1 className="text-xl sm:text-2xl uppercase tracking-[0.2em] font-['Press_Start_2P'] bg-gradient-to-r from-[var(--neon-cyan)] to-[var(--neon-blue)] bg-clip-text text-transparent">
               SYSTEM_LOGS
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              DEPLOYMENT_HISTORY :: v1.2.3
+              DEPLOYMENT_HISTORY :: v1.3.4
             </p>
           </div>
         </motion.div>
@@ -99,7 +160,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white mb-2 uppercase tracking-wider">Evolution Registry</h2>
-                <p className="text-blue-100/70 text-sm leading-relaxed text-justify">
+                <p className="text-white/90 text-sm leading-relaxed text-justify">
                   Official registry of all system updates and patches applied to the FlashLearn core environment.
                   Each entry documents neural optimizations, UI refactorings, and infrastructure stability patches.
                   Stay updated on project progression.
@@ -112,9 +173,9 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
         {/* Status indicator bar */}
         <div className="mb-8 font-mono text-[10px] p-2 bg-black/40 border-l-2 border-[var(--neon-cyan)] flex justify-between items-center overflow-hidden whitespace-nowrap uppercase tracking-widest">
           <div className="flex gap-4">
-            <span className="text-[var(--neon-cyan)] animate-pulse">LAST_DEPLOY: 2026.03.30</span>
-            <span className="text-white/40">BRANCH: PRODUCTION</span>
-            <span className="text-white/40">ENV: SUPABASE_LIVE</span>
+            <span className="text-[var(--neon-cyan)] animate-pulse font-bold">LAST_DEPLOY: 2026.04.04</span>
+            <span className="text-foreground/40 font-bold">BRANCH: PRODUCTION</span>
+            <span className="text-foreground/40 font-bold">ENV: SUPABASE_LIVE</span>
           </div>
           <div className="flex gap-2">
             <Cloud className="w-3 h-3 text-white/40" />
@@ -140,19 +201,19 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
                 className="w-full flex items-center justify-between p-5 text-left group"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`p-2 rounded-lg transition-colors ${openVersion === release.version ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/5 text-white/30 group-hover:text-cyan-400'
+                  <div className={`p-2 rounded-lg transition-colors ${openVersion === release.version ? 'bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)]' : 'bg-secondary text-foreground/30 group-hover:text-[var(--neon-cyan)]'
                     }`}>
                     <Cpu className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-cyan-400 font-['Press_Start_2P'] text-[10px]">v{release.version}</span>
-                      <span className="w-1 h-1 rounded-full bg-white/20" />
-                      <span className="text-xs text-white/80 font-medium group-hover:text-white transition-colors uppercase tracking-wider">{release.description}</span>
+                      <span className="text-[var(--neon-cyan)] font-['Press_Start_2P'] text-[10px]">v{release.version}</span>
+                      <span className="w-1 h-1 rounded-full bg-foreground/20" />
+                      <span className="text-xs text-foreground/80 font-bold group-hover:text-[var(--neon-cyan)] transition-colors uppercase tracking-wider">{release.description}</span>
                     </div>
                   </div>
                 </div>
-                <ChevronRight className={`w-4 h-4 text-white/20 transition-transform duration-300 group-hover:text-cyan-400 ${openVersion === release.version ? 'rotate-90 text-cyan-400' : ''}`} />
+                <ChevronRight className={`w-4 h-4 text-foreground/20 transition-transform duration-300 group-hover:text-[var(--neon-cyan)] ${openVersion === release.version ? 'rotate-90 text-[var(--neon-cyan)]' : ''}`} />
               </button>
 
               <AnimatePresence>
@@ -168,12 +229,12 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
                         {release.changes.map((change, i) => (
                           <motion.li
                             key={i}
-                            className="text-xs text-white/60 flex items-start gap-4 leading-relaxed"
+                            className="text-xs text-foreground/70 flex items-start gap-4 leading-relaxed"
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.05 }}
                           >
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 mt-1.5 shrink-0 shadow-[0_0_8px_#06b6d4]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--neon-cyan)]/50 mt-1.5 shrink-0 shadow-[0_0_8px_#06b6d4]" />
                             {change}
                           </motion.li>
                         ))}
@@ -186,18 +247,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
           ))}
         </div>
 
-        {/* Footer Action */}
-        <motion.div
-          className="mt-12 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          <NeonButton onClick={onBack} animate={true} glowing={true} className="px-8 border-cyan-500/50 text-cyan-400">
-            <span className="mr-2">TERMINATE_LOGS</span>
-            <ChevronLeft className="w-3 h-3 inline rotate-180" />
-          </NeonButton>
-        </motion.div>
+        {/* Footer removed to streamline navigation */}
       </div>
     </div>
   );

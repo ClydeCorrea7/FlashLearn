@@ -60,8 +60,17 @@ export const authAPI = {
   },
 
   async resetPassword(email: string) {
+    const origin = window.location.origin;
+    const isProduction = origin.includes('vercel.app') || origin.includes('flash-learn-iota');
+    
+    // Environment variable takes precedence, otherwise use origin-based logic
+    const resetRedirect = import.meta.env.VITE_AUTH_REDIRECT_URL || 
+      (isProduction 
+        ? 'https://flash-learn-iota.vercel.app/#reset-password' 
+        : `${origin}/#reset-password`);
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: resetRedirect,
     })
     
     if (error) {

@@ -15,10 +15,14 @@ import { DeleteAccountModule } from "./components/DeleteAccountModule";
 import { DeckImportExport } from './components/DeckImportExport';
 import { ManualScreen } from './components/ManualScreenComponent';
 import { ChangelogScreen } from "./components/ChangelogScreen";
+import { DeckStorageScreen } from "./components/DeckStorageScreen";
 import { DynamicSession } from "./components/DynamicSession";
+import { NotesPage } from "./components/NotesPage";
+import { NotesPageScreen } from "./components/NotesPageScreen";
 import { projectId, publicAnonKey } from './utils/supabase/info';
 import { supabase } from './utils/supabase/client';
 import * as supabaseOps from './utils/supabase/operations';
+import { NotificationProvider } from "./components/NotificationCenter";
 import {
   Home,
   TrendingUp,
@@ -27,7 +31,9 @@ import {
   Loader2,
   Zap,
   Sparkles,
-  Brain
+  Brain,
+  BookOpen,
+  Layers
 } from "lucide-react";
 
 interface Flashcard {
@@ -51,27 +57,31 @@ interface Deck {
   masteredCount: number;
   lastStudied: string;
   preferredMode: import('./utils/supabase/client').LearningMode;
+  type: import('./utils/supabase/client').LearningMode;
   dueCount: number;
 }
 
 type Screen =
   | 'dashboard'
+  | 'create'
+  | 'socials'
+  | 'notifications'
+  | 'settings'
   | 'create-deck'
   | 'deck-view'
   | 'study'
   | 'edit-deck'
-  | 'pdf-upload'
-  | 'progress'
+  | 'notes'
   | 'import-export'
   | 'dynamic-session'
   | 'auth'
   | 'onboarding'
   | 'study-mode'
-  | 'settings'
-  | 'reset-password'
   | 'purge'
   | 'manual'
-  | 'changelog';
+  | 'changelog'
+  | 'storage'
+  | 'reset-password';
 
 interface UserProgress {
   user_id: string;
@@ -93,6 +103,9 @@ interface AppState {
   user: any;
   userProgress: UserProgress | null;
   isDeleting: boolean;
+  notifications: AppNotification[];
+  unreadNotificationsCount: number;
+  initialChoice: 'selection' | 'auth' | 'notes' | null;
 }
 
 // AI Integration for flashcard generation using OpenAI
@@ -145,6 +158,15 @@ const generateFlashcardsWithAI = async (
   }
 };
 
+interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'admin' | 'system';
+  readStatus: boolean;
+  createdAt: string;
+}
+
 
 function App() {
   const [state, setState] = useState<AppState>({
@@ -158,6 +180,9 @@ function App() {
     user: null,
     userProgress: null,
     isDeleting: false,
+    notifications: [],
+    unreadNotificationsCount: 0,
+    initialChoice: 'selection',
   });
 
   // PWA installation support
@@ -207,14 +232,16 @@ function App() {
         console.error("Session error:", error);
       }
 
-      // Detect recovery flow
+      // Detect recovery flow (Handles both path and hash-based from Supabase)
       const hash = window.location.hash;
-      if (hash && hash.includes('type=recovery')) {
+      const path = window.location.pathname;
+      if ((hash && hash.includes('type=recovery')) || path.includes('/reset-password')) {
         setState((prev) => ({
           ...prev,
-          isAuthenticated: true, // We have a session but need the reset screen
+          isAuthenticated: true, // We have a temporary session from the link
           currentScreen: "reset-password",
           isLoading: false,
+          initialChoice: 'auth'
         }));
         return;
       }
@@ -222,6 +249,21 @@ function App() {
       if (session?.user) {
         // User is logged in
         const user = session.user;
+
+        // Strict Check: Check if email is confirmed
+        if (!user.email_confirmed_at) {
+          console.warn("Session detected but email not confirmed.");
+          await supabase.auth.signOut();
+          setState((prev) => ({
+            ...prev,
+            isAuthenticated: false,
+            currentScreen: "auth",
+            user: null,
+            isLoading: false
+          }));
+          return;
+        }
+
         setState((prev) => ({
           ...prev,
           isAuthenticated: true,
@@ -289,6 +331,7 @@ function App() {
           masteredCount: deck.masteredCount,
           lastStudied: deck.lastStudied || 'Never',
           preferredMode: deck.preferredMode,
+          type: deck.type, // Explicitly pass type
           dueCount: deck.dueCount
         })),
         userProgress: progress ? {
@@ -301,9 +344,25 @@ function App() {
         } : null,
         syncStatus: "success",
       }));
+
+      // Load notifications
+      await loadNotifications();
     } catch (error) {
       console.error("Failed to load user data from Supabase:", error);
       setState((prev) => ({ ...prev, syncStatus: "error" }));
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const notifications = await supabaseOps.getNotifications();
+      setState(prev => ({
+        ...prev,
+        notifications,
+        unreadNotificationsCount: notifications.filter(n => !n.readStatus).length
+      }));
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
     }
   };
 
@@ -314,6 +373,11 @@ function App() {
 
       if (session?.user) {
         const user = session.user;
+
+        // Final verification check
+        if (!user.email_confirmed_at) {
+          return; // Logic handled in Auth screen or initializeApp
+        }
 
         setState((prev) => ({
           ...prev,
@@ -372,6 +436,14 @@ function App() {
     try {
       setState((prev) => ({ ...prev, syncStatus: "syncing" }));
 
+      // 1. Verify Deck Limit (Max 15)
+      const canCreate = await supabaseOps.verifyDeckLimit();
+      if (!canCreate) {
+        alert("Maximum deck limit reached (15). Delete or merge decks to continue.");
+        setState(prev => ({ ...prev, syncStatus: 'idle' }));
+        return;
+      }
+
       // Create deck in Supabase with preferred mode
       const deck = await supabaseOps.createDeck(title, description, cards, preferredMode);
 
@@ -389,6 +461,7 @@ function App() {
         cardCount: cards.length,
         masteredCount: 0,
         preferredMode: preferredMode,
+        type: preferredMode,
         lastStudied: "Never",
         dueCount: 0
       };
@@ -405,6 +478,27 @@ function App() {
     } catch (error) {
       console.error("Failed to create deck in Supabase:", error);
       setState((prev) => ({ ...prev, syncStatus: "error" }));
+    }
+  };
+
+  const handleMergeDecks = async (deckId1: string, deckId2: string, title: string, description: string) => {
+    try {
+      setState(prev => ({ ...prev, syncStatus: 'syncing' }));
+
+      const newDeck = await supabaseOps.mergeDecks(deckId1, deckId2, title, description);
+
+      // Refresh decks list
+      await loadUserData();
+
+      setState(prev => ({
+        ...prev,
+        currentScreen: 'dashboard',
+        syncStatus: 'success'
+      }));
+    } catch (error) {
+      console.error("Merge failed:", error);
+      alert(`Merge failed: ${error.message}`);
+      setState(prev => ({ ...prev, syncStatus: 'error' }));
     }
   };
 
@@ -541,7 +635,8 @@ function App() {
               cardCount: deckWithCards.cards.length,
               masteredCount: deckWithCards.cards.filter(c => c.mastered).length,
               lastStudied: deckWithCards.last_studied || 'Never',
-              preferredMode: deckWithCards.preferred_mode,
+              preferredMode: deckWithCards.type || 'static',
+              type: deckWithCards.type,
               dueCount: 0 // Will be synced on return to dashboard
             }
             : deck
@@ -824,7 +919,7 @@ function App() {
     return (
       <AnimatePresence>
         <motion.div
-          className={`fixed top-4 left-4 right-4 sm:right-auto sm:w-auto z-50 flex items-center justify-center sm:justify-start gap-2 cyber-surface rounded-lg px-3 py-2 neon-border-blue ${config.color}`}
+          className={`fixed top-4 left-4 right-4 sm:right-auto sm:w-auto z-50 flex items-center justify-center sm:justify-start gap-2 cyber-surface rounded-lg px-3 py-2 border-2 border-border shadow-lg ${config.color}`}
           initial={{ opacity: 0, y: -50, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -50, scale: 0.8 }}
@@ -833,7 +928,7 @@ function App() {
           <IconComponent
             className={`w-3 h-3 ${state.syncStatus === "syncing" ? "animate-spin" : "animate-pulse"}`}
           />
-          <span className="text-[7px] sm:text-[8px] font-['Press_Start_2P']">
+          <span className="text-[7px] sm:text-[8px] font-['Press_Start_2P'] font-black">
             {config.text}
           </span>
         </motion.div>
@@ -847,13 +942,14 @@ function App() {
 
     const navItems = [
       { icon: Home, screen: "dashboard", label: "Home" },
-      { icon: Plus, screen: "create-deck", label: "Create" },
-      { icon: TrendingUp, screen: "progress", label: "Progress" },
+      { icon: Plus, screen: "create", label: "Create" },
+      { icon: Zap, screen: "socials", label: "Socials" },
+      { icon: BookOpen, screen: "notifications", label: "Alerts" },
       { icon: Settings, screen: "settings", label: "Settings" },
     ];
 
     return (
-      <div className="fixed bottom-0 left-0 right-0 cyber-surface border-t-2 border-[var(--neon-blue)] p-3 z-50 safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 cyber-surface border-t-2 border-border p-3 z-50 safe-area-bottom">
         <div className="flex justify-around max-w-md mx-auto">
           {navItems.map((item, index) => {
             const IconComponent = item.icon;
@@ -893,7 +989,7 @@ function App() {
 
     return (
       <motion.div
-        className="fixed top-20 left-4 right-4 z-50 cyber-surface rounded-lg p-4 neon-border-blue"
+        className="fixed top-20 left-4 right-4 z-50 bg-card border-2 border-border rounded-lg p-4 shadow-xl"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
@@ -924,6 +1020,74 @@ function App() {
 
   const renderCurrentScreen = () => {
     if (!state.isAuthenticated) {
+      if (state.initialChoice === 'selection') {
+        return (
+          <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 space-y-12">
+            <motion.div
+              className="text-center space-y-4"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <h1 className="text-2xl font-black bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent uppercase tracking-[0.2em] font-['Press_Start_2P']">
+                FlashLearn
+              </h1>
+              <p className="text-[8px] text-muted-foreground uppercase tracking-widest font-['Press_Start_2P']">
+                Neural Learning Protocol
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                onClick={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
+              >
+                <div className="cyber-surface p-6 rounded-2xl border border-border/50 hover:neon-border-blue transition-all cursor-pointer group">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="p-4 bg-[var(--neon-blue)]/20 rounded-xl group-hover:neon-glow-blue transition-all">
+                      <BookOpen className="w-10 h-10 text-[var(--neon-blue)]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground mb-1">Neural Notes</h3>
+                      <p className="text-[10px] text-muted-foreground font-medium">Generate professional notes instantly (No Login Required)</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                onClick={() => setState(prev => ({ ...prev, initialChoice: 'auth' }))}
+              >
+                <div className="cyber-surface p-6 rounded-2xl border border-border/50 hover:neon-border-purple transition-all cursor-pointer group">
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className="p-4 bg-[var(--neon-purple)]/20 rounded-xl group-hover:neon-glow-purple transition-all">
+                      <Zap className="w-10 h-10 text-[var(--neon-purple)]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground mb-1">Flashcard Sync</h3>
+                      <p className="text-[10px] text-muted-foreground font-medium">Save decks, track progress, & adaptive study (Login Required)</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        );
+      }
+
+      if (state.initialChoice === 'notes') {
+        return (
+          <NotesPageScreen
+            onBack={() => setState(prev => ({ ...prev, initialChoice: 'selection' }))}
+            isAuthenticated={state.isAuthenticated}
+          />
+        );
+      }
+
       return <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />;
     }
 
@@ -949,6 +1113,20 @@ function App() {
               onOpenDeck={handleOpenDeck}
               onDeleteDeck={handleDeleteDeck}
               onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
+              onOpenStorage={() => setState((prev) => ({ ...prev, currentScreen: 'storage' }))}
+            />
+          </PageTransition>
+        );
+      
+      case "storage":
+        return (
+          <PageTransition>
+            <DeckStorageScreen 
+              decks={state.decks}
+              onBack={() => setState(prev => ({ ...prev, currentScreen: 'dashboard' }))}
+              onMergeDecks={handleMergeDecks}
+              onDeleteDeck={handleDeleteDeck}
+              onOpenDeck={handleOpenDeck}
             />
           </PageTransition>
         );
@@ -1012,6 +1190,7 @@ function App() {
               }
               onOpenDeck={handleOpenDeck}
               onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
+              onOpenStorage={() => setState((prev) => ({ ...prev, currentScreen: 'storage' }))}
             />
           </PageTransition>
         );
@@ -1039,29 +1218,91 @@ function App() {
               }
               onOpenDeck={handleOpenDeck}
               onOpenManual={() => setState((prev) => ({ ...prev, currentScreen: 'manual' }))}
+              onOpenStorage={() => setState((prev) => ({ ...prev, currentScreen: 'storage' }))}
             />
           </PageTransition>
         );
 
-      case "progress":
+      case "create":
         return (
           <PageTransition>
-            <ProgressScreen
-              decks={state.decks.map((deck) => ({
-                id: deck.id,
-                title: deck.title,
-                cardCount: deck.cardCount,
-                masteredCount: deck.masteredCount,
-                lastStudied: deck.lastStudied,
-              }))}
-              userProgress={state.userProgress}
-              onBack={() =>
-                setState((prev) => ({
-                  ...prev,
-                  currentScreen: "dashboard",
-                }))
-              }
+            <CreateDeckScreen
+              onBack={() => setState((prev) => ({ ...prev, currentScreen: "dashboard" }))}
+              onCreateDeck={handleCreateDeck}
+              onCreateDeckWithAI={handleCreateDeckWithAI}
+              onStartDynamicSession={handleStartDynamicSession}
+              onOpenNotes={() => setState(prev => ({ ...prev, currentScreen: 'notes' }))}
             />
+          </PageTransition>
+        );
+
+      case "notes":
+        return (
+          <NotesPageScreen
+            onBack={() => setState(prev => ({ ...prev, currentScreen: 'dashboard' }))}
+            isAuthenticated={state.isAuthenticated}
+          />
+        );
+
+      case "socials":
+        return (
+          <PageTransition>
+            <div className="min-h-screen flex items-center justify-center p-6 text-center">
+              <div className="space-y-4">
+                <motion.div
+                  className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Plus className="w-10 h-10 text-muted-foreground opacity-20" />
+                </motion.div>
+                <h2 className="text-xl font-bold opacity-40">Socials coming soon</h2>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto opacity-30">
+                  Connect with other learners, share decks, and master topics together.
+                </p>
+              </div>
+            </div>
+          </PageTransition>
+        );
+
+      case "notifications":
+        return (
+          <PageTransition>
+            <div className="min-h-screen bg-background overflow-auto">
+              <div className="max-w-2xl mx-auto p-4 pb-24">
+                <div className="flex items-center justify-between mb-8">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">Notifications</h1>
+                </div>
+
+                {state.notifications.length === 0 ? (
+                  <div className="text-center py-20 opacity-30">
+                    <Zap className="w-12 h-12 mx-auto mb-4" />
+                    <p>No notifications yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {state.notifications.map(n => (
+                      <motion.div
+                        key={n.id}
+                        className={`p-4 rounded-xl border border-border bg-card ${!n.readStatus ? 'border-[var(--neon-blue)] shadow-[0_0_10px_rgba(59,130,246,0.2)]' : ''}`}
+                        onClick={async () => {
+                          if (!n.readStatus) {
+                            await supabaseOps.markNotificationRead(n.id);
+                            loadNotifications();
+                          }
+                        }}
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <h3 className="font-bold text-sm text-foreground">{n.title}</h3>
+                          <span className="text-[8px] text-muted-foreground opacity-60 font-bold">{new Date(n.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-medium">{n.message}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </PageTransition>
         );
 
@@ -1082,7 +1323,7 @@ function App() {
                   currentScreen: "purge",
                 }))
               }
-              onOpenChangelog={() => 
+              onOpenChangelog={() =>
                 setState(prev => ({ ...prev, currentScreen: 'changelog' }))
               }
               user={state.user}
@@ -1150,7 +1391,8 @@ function App() {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-background relative overflow-hidden">
+      <NotificationProvider>
+        <div className="min-h-screen bg-background relative overflow-hidden">
         {/* Mobile-optimized background */}
         <div className="fixed inset-0 pointer-events-none">
           <motion.div
@@ -1212,7 +1454,8 @@ function App() {
             )}
           </>
         )}
-      </div>
+        </div>
+      </NotificationProvider>
     </ThemeProvider>
   );
 }

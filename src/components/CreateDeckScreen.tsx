@@ -11,6 +11,7 @@ interface CreateDeckScreenProps {
   onCreateDeck: (title: string, description: string, cards: Array<{front: string, back: string}>, mode?: 'static' | 'dynamic' | 'mcq') => void;
   onCreateDeckWithAI?: (topic: string, cardCount: number, mode?: 'static' | 'dynamic' | 'mcq') => void;
   onStartDynamicSession?: () => void;
+  onOpenNotes?: () => void;
 }
 
 
@@ -18,13 +19,15 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
   onBack, 
   onCreateDeck, 
   onCreateDeckWithAI,
-  onStartDynamicSession
+  onStartDynamicSession,
+  onOpenNotes
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [cardCount, setCardCount] = useState(10);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'static' | 'mcq' | 'dynamic'>('static');
+  const [creationType, setCreationType] = useState<'selection' | 'flashcards' | 'notes'>('selection');
 
 
   const handleGenerateWithAI = async () => {
@@ -61,6 +64,74 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
   // Check if any generation is in progress
   const isBusy = isGenerating;
 
+  if (creationType === 'selection') {
+    return (
+      <div className="min-h-screen bg-background overflow-auto p-6 flex flex-col items-center justify-center space-y-12 pb-32">
+        <motion.div 
+          className="text-center space-y-4"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-2xl font-black bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent uppercase tracking-[0.2em] font-['Press_Start_2P']">
+            Genesis Hub
+          </h1>
+          <p className="text-[8px] text-muted-foreground uppercase tracking-widest font-['Press_Start_2P']">
+            Select Generation Protocol
+          </p>
+        </motion.div>
+
+        <div className="grid grid-cols-1 gap-6 w-full max-w-sm">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <AnimatedCard 
+              variant="neon" 
+              className="p-8 cursor-pointer group hover:neon-border-blue transition-all"
+              onClick={() => setCreationType('flashcards')}
+            >
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="p-4 bg-[var(--neon-blue)]/20 rounded-2xl group-hover:neon-glow-blue transition-all">
+                  <Plus className="w-10 h-10 text-[var(--neon-blue)]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground mb-2">Neural Flashcards</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Generate AI-powered decks, MCQs, and adaptive learning sessions.</p>
+                </div>
+              </div>
+            </AnimatedCard>
+          </motion.div>
+
+          <motion.div
+             initial={{ opacity: 0, x: 20 }}
+             animate={{ opacity: 1, x: 0 }}
+             transition={{ delay: 0.2 }}
+          >
+            <AnimatedCard 
+              variant="neon" 
+              className="p-8 cursor-pointer group hover:neon-border-purple transition-all"
+              onClick={() => {
+                if (onOpenNotes) onOpenNotes();
+              }}
+            >
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="p-4 bg-[var(--neon-purple)]/20 rounded-2xl group-hover:neon-glow-purple transition-all">
+                  <FileText className="w-10 h-10 text-[var(--neon-purple)]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground mb-2">Neural Notes</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">Turn topics into high-fidelity academic notes and structured exports.</p>
+                </div>
+              </div>
+            </AnimatedCard>
+          </motion.div>
+        </div>
+
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background overflow-auto">
       {/* Mobile-optimized container */}
@@ -73,7 +144,7 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
           transition={{ duration: 0.4 }}
         >
           <motion.button 
-            onClick={onBack}
+            onClick={() => setCreationType('selection')}
             className="p-3 rounded-xl hover:bg-secondary/50 transition-colors touch-manipulation"
             whileTap={{ scale: 0.9 }}
             whileHover={{ scale: 1.05 }}
@@ -81,7 +152,7 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </motion.button>
           <h1 className="text-lg sm:text-xl bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
-            Create New Deck
+            Flashcard Generation
           </h1>
         </motion.div>
 
@@ -102,7 +173,7 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
                 <label className="block mb-3 text-sm">
                   Learning Methodology
                 </label>
-                <div className="flex bg-secondary/30 p-1 rounded-xl border border-white/5 backdrop-blur-sm">
+                <div className="flex bg-secondary/30 p-1 rounded-xl border border-border/50 backdrop-blur-sm">
                   {(['static', 'mcq', 'dynamic'] as const).map((m) => (
                     <button
                       key={m}
@@ -199,7 +270,7 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
           >
             <AnimatedCard 
               variant="cyber" 
-              className="p-6 mb-6"
+              className="p-6 mb-6 bg-secondary/50 border-border"
               delay={0.3}
               glowing={true}
             >
@@ -330,17 +401,16 @@ export const CreateDeckScreen: React.FC<CreateDeckScreenProps> = ({
           )}
           
           {/* Help text */}
-          <motion.p 
-            className="text-xs text-center text-muted-foreground px-4 leading-relaxed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            Choose an option above to create your flashcard deck
-          </motion.p>
+            <motion.p 
+              className="text-xs text-center text-muted-foreground px-4 leading-relaxed mt-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
+              Choose an option above to create your flashcard deck
+            </motion.p>
         </motion.div>
       </div>
     </div>
   );
 };
-

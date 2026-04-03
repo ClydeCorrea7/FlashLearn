@@ -1,4 +1,5 @@
 # FlashLearn: AI-Powered Adaptive Learning Ecosystem (v1.2.3)
+**🚀 Live Demo:** [flash-learn-iota.vercel.app](https://flash-learn-iota.vercel.app/)
 
 FlashLearn is a high-fidelity, cinematic learning platform designed to revolutionize how students and professionals master complex subjects. By fusing a **Cyber-Neon** aesthetic with a state-of-the-art **Adaptive AI Tutoring Engine**, FlashLearn transforms passive study into an immersive cognitive experience.
 

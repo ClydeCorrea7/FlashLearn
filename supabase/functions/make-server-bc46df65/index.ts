@@ -869,6 +869,129 @@ Do not include markdown formatting or extra text.`;
     return c.json({ error: error.message }, 500);
   }
 });
+app.post('/ai/generate-notes', async (c: Context) => {
+  try {
+    const { subject_context, topics, tone, examples_toggle } = await c.req.json();
+    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+
+    const prompt = `You are an expert academic writer and an engaging teacher. Generate structured, exam-ready notes for EVERY topic provided. DO NOT skip or merge topics.
+
+---
+
+# 🧠 GENERATION PROTOCOL (STRICT)
+
+1. TOTAL TOPIC COVERAGE:
+- You MUST generate a distinct section for EACH topic listed.
+- Use the provided Subject Context as the absolute lens for all analysis.
+- Subject: ${subject_context}
+
+2. DUAL-LAYER TONE HANDLING:
+- Tone Setting: ${tone === 'Professional' ? 'Direct & Formal' : 'Conversational & Intuitive'}
+- LAYER 1 (Definition/Description): MUST stay formal, academic, and direct. ${tone} DOES NOT apply here.
+- LAYER 2 (Explanation): ${tone} applies ONLY here. 
+    * If Playful: Use phrases like "Think about it this way..." or "Here’s what’s actually happening...". Stay smart and intuitive; NO pizza/cake analogies or generic metaphors.
+    * If Professional: Stay clear, formal, and direct.
+
+3. CLEAN FORMATTING & PDF PREP:
+- Use ONLY the standard bullet symbol: •
+- DO NOT use dashes (-), scenarios, or encoded symbols like %æ, §, ♦, ◦.
+- Every description point and example MUST start with "• ".
+- NO markdown symbols like # or **.
+
+---
+
+# 🧱 STRUCTURE (PER TOPIC)
+
+Topic Title: [Topic]
+
+Definition:
+- Formal, academic, and specifically contextualized to ${subject_context}.
+
+Description:
+- 5–8 high-quality bullets (starting with •).
+- Each point must be a full, detailed sentence with subject-specific relevance.
+
+Explanation:
+- [TONE APPLIED HERE]
+- Break long lines. Ensure a breathable layout.
+
+Examples (If ${examples_toggle} is 'Include Examples'):
+- Provide 3–5 HIGH-QUALITY real-world examples from ${subject_context}.
+- Each example must be a full sentence starting with "• ".
+
+Keywords:
+- Relevant technical terms from the domain intersection.
+
+---
+
+AI CONSTRAINTS:
+- Stop immediately if JSON is malformed.
+- Return ONLY a valid JSON array. Each object in the array represents a topic and has the following keys:
+  - "title" (string)
+  - "definition" (string)
+  - "description" (array of strings, every string MUST start with "• ")
+  - "explanation" (string)
+  - "examples" (array of strings, every string MUST start with "• ")
+  - "keywords" (array of strings)
+`;
+
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openrouterKey}`,
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are an expert academic content writer. Respond ONLY with valid JSON.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000
+      })
+    });
+
+    if (!response.ok) throw new Error('AI generation failed');
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) throw new Error("No content received from AI");
+
+    // Robust cleaning
+    const cleanContent = content
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    
+    let parsedNotes;
+    try {
+      parsedNotes = JSON.parse(cleanContent);
+    } catch (e) {
+      // Sometimes the LLM includes explanatory text. Attempt to extract the [ ... ] part
+      console.log('Failed to parse cleanContent natively. Trying to extract array blindly.', e);
+      const match = cleanContent.match(/\[.*\]/s);
+      if (match) {
+        try {
+          parsedNotes = JSON.parse(match[0]);
+        } catch (e2) {
+          console.error("Critical parse failure:", cleanContent);
+          throw new Error("Unable to parse AI response as JSON");
+        }
+      } else {
+        console.error("No JSON array format found:", cleanContent);
+        throw new Error("Data was not formatted correctly as array");
+      }
+    }
+    
+    return c.json({ notes: parsedNotes });
+  } catch (error: any) {
+    console.error("AI Generate Notes Error:", error);
+    return c.json({ error: error.message }, 500);
+  }
+});
 
 // Handle both naked paths and paths prefixed with the function name
 // This is a common requirement in Supabase Edge Functions with Hono

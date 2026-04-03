@@ -25,7 +25,7 @@ export interface Deck {
   card_count: number;
   mastered_count: number;
   last_studied: string | null;
-  preferred_mode: LearningMode;
+  type: LearningMode;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +68,7 @@ export interface DeckStats {
   masteredCount: number;
   lastStudied: string | null;
   preferredMode: LearningMode;
+  type: LearningMode;
   dueCount: number;
 }
 
@@ -85,4 +86,14 @@ export interface CardAttempt {
   confidence: 'easy' | 'medium' | 'hard';
   mode: LearningMode;
   created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string | null;
+  title: string;
+  message: string;
+  type: 'admin' | 'system';
+  readStatus: boolean;
+  createdAt: string;
 }

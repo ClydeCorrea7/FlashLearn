@@ -44,15 +44,22 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
       content: "Real-time conversational learning with an adaptive AI tutor. No decks required. To initiate: Select 'Dynamic' mode in 'Create Deck', then calibrate your topic, level, and session objectives in the session setup.",
       color: "var(--neon-purple)",
       shadow: "rgba(139, 92, 246, 0.5)"
+    },
+    {
+      icon: Sparkles,
+      title: "NEURAL NOTES",
+      content: "AI-synthesized academic notes with high-fidelity formatting. Best for deep thematic study. To generate: Select 'Notes' mode in 'Create Dashboard', configure your subject context and topics, then download or archive to your vault.",
+      color: "var(--neon-blue)",
+      shadow: "rgba(59, 130, 246, 0.5)"
     }
   ];
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden pt-6 pb-20 px-4">
       {/* Background Decor */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-20">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-[var(--neon-blue)] rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[var(--neon-purple)] rounded-full blur-[120px] animate-pulse" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-[0.05] dark:opacity-20 transition-opacity">
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-[var(--neon-cyan)] rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[var(--neon-blue)] rounded-full blur-[120px] animate-pulse" />
       </div>
 
       <div className="max-w-4xl mx-auto relative z-10">
@@ -64,16 +71,16 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
         >
           <button
             onClick={onBack}
-            className="p-2 rounded-full hover:bg-secondary/50 transition-colors border border-white/10"
+            className="p-2 rounded-full hover:bg-secondary/50 transition-colors border border-border"
           >
-            <ChevronLeft className="w-5 h-5 text-white" />
+            <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
             <h1 className="text-xl sm:text-2xl uppercase tracking-[0.2em] font-['Press_Start_2P'] bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] bg-clip-text text-transparent">
               SYSTEM_MANUAL
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              PROTOCOL_VERSION :: 1.0.4
+              PROTOCOL_VERSION :: 1.0.5
             </p>
           </div>
         </motion.div>
@@ -88,11 +95,11 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
           <AnimatedCard variant="cyber" className="p-6 overflow-hidden relative" glowing={true}>
             <div className="flex items-start gap-4">
               <div className="p-3 bg-[var(--neon-blue)]/30 rounded-xl neon-border-blue shrink-0">
-                <BookOpen className="w-6 h-6 text-black/90" />
+                <BookOpen className="w-6 h-6 text-foreground" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white mb-2 uppercase tracking-wider">Welcome to FlashLearn</h2>
-                <p className="text-blue-100/70 text-sm leading-relaxed text-justify">
+                <h2 className="text-lg font-bold text-foreground mb-2 uppercase tracking-wider">Welcome to FlashLearn</h2>
+                <p className="text-foreground/80 text-sm leading-relaxed text-justify">
                   The FlashLearn interface is designed for high-efficiency information retention. This manual provides technical documentation on the core sub-systems and protocol handling within the application. Follow each directive to optimize your learning output.
                 </p>
               </div>
@@ -101,11 +108,11 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
         </motion.div>
 
         {/* Terminal/Status Bar */}
-        <div className="mb-8 font-mono text-[10px] p-2 bg-black/40 border-l-2 border-[var(--neon-blue)] flex justify-between items-center overflow-hidden whitespace-nowrap">
+        <div className="mb-8 font-mono text-[10px] p-2 bg-secondary/30 dark:bg-black/40 border-l-2 border-[var(--neon-cyan)] flex justify-between items-center overflow-hidden whitespace-nowrap uppercase tracking-widest">
           <div className="flex gap-4">
             <span className="text-[var(--neon-blue)] animate-pulse">STATUS: ONLINE</span>
-            <span className="text-white/40">LATENCY: 12ms</span>
-            <span className="text-white/40">BUFFER: STABLE</span>
+            <span className="text-foreground/40">LATENCY: 12ms</span>
+            <span className="text-foreground/40">BUFFER: STABLE</span>
           </div>
           <div className="flex gap-2">
             <Layers className="w-3 h-3 text-white/40" />
@@ -151,18 +158,7 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
           })}
         </div>
 
-        {/* Footer Action */}
-        <motion.div
-          className="mt-12 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          <NeonButton onClick={onBack} animate={true} glowing={true} className="px-8">
-            <span className="mr-2">RETURN_TO_CORE</span>
-            <ChevronLeft className="w-3 h-3 inline rotate-180" />
-          </NeonButton>
-        </motion.div>
+        {/* Footer removed to streamline navigation via header */}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 // Database Operations for FlashLearn App
 // CRUD operations for decks, cards, and user progress
 
-import { supabase, type Deck, type Card, type UserProgress, type DeckWithCards, type DeckStats, type LearningMode, type MCQOption } from './client';
+import { supabase, type Deck, type Card, type UserProgress, type DeckWithCards, type DeckStats, type LearningMode, type MCQOption, type AppNotification } from './client';
 import { projectId, publicAnonKey } from './info';
 
 // ============================================
@@ -40,7 +40,7 @@ export async function getDecks(): Promise<DeckStats[]> {
       card_count,
       mastered_count,
       last_studied,
-      preferred_mode,
+      type,
       created_at,
       updated_at
     `)
@@ -67,7 +67,8 @@ export async function getDecks(): Promise<DeckStats[]> {
       cardCount: deck.card_count || 0,
       masteredCount: deck.mastered_count || 0,
       lastStudied: deck.last_studied,
-      preferredMode: deck.preferred_mode || 'static',
+      preferredMode: deck.type || 'static',
+      type: deck.type || 'static',
       dueCount: count || 0
     };
   }));
@@ -136,7 +137,8 @@ export async function createDeck(
       card_count: cards?.length || 0,
       mastered_count: 0,
       last_studied: null,
-      preferred_mode: preferredMode
+      preferred_mode: preferredMode,
+      type: preferredMode // Ensure type is set explicitly
     })
     .select()
     .single();
@@ -758,3 +760,170 @@ export async function deleteUserAccount(purgeEverything: boolean = true): Promis
   }
 }
 
+
+// ============================================
+// NOTIFICATION OPERATIONS
+// ============================================
+
+/**
+ * Fetch all notifications for the current user
+ */
+export async function getNotifications(): Promise<AppNotification[]> {
+  const userId = await getCurrentUserId();
+  // Don't throw for unauthenticated here to allow public notifications if needed, 
+  // but usually we want a user.
+  
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .or(`user_id.eq.${userId},user_id.is.null`)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching notifications:', error);
+    throw new Error(error.message);
+  }
+
+  return data.map(n => ({
+    id: n.id,
+    userId: n.user_id,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    readStatus: n.read_status,
+    createdAt: n.created_at
+  }));
+}
+
+/**
+ * Mark a notification as read
+ */
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ read_status: true })
+    .eq('id', notificationId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error marking notification as read:', error);
+    throw new Error(error.message);
+  }
+}
+
+// ============================================
+// SYSTEM VALIDATIONS
+// ============================================
+
+/**
+ * Check if the user has reached the deck limit (15)
+ */
+export async function verifyDeckLimit(): Promise<boolean> {
+  const userId = await getCurrentUserId();
+  if (!userId) return false;
+
+  const { count, error } = await supabase
+    .from('decks')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+
+  if (error) throw new Error(error.message);
+  return (count || 0) < 15;
+}
+
+// ============================================
+// DECK MERGING
+// ============================================
+
+/**
+ * Merge two decks of the same type (Static or MCQ)
+ */
+export async function mergeDecks(
+  deckId1: string,
+  deckId2: string,
+  newTitle: string,
+  newDescription: string
+): Promise<Deck> {
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error('Not authenticated');
+
+  // 1. Fetch both decks to verify type and ownership
+  const [deck1, deck2] = await Promise.all([
+    getDeck(deckId1),
+    getDeck(deckId2)
+  ]);
+
+  if (!deck1 || !deck2) throw new Error('One or both decks not found');
+  
+  // Rule: Must be of same type and NOT dynamic
+  if (deck1.type !== deck2.type) throw new Error('Cannot merge decks of different types');
+  if (deck1.type === 'dynamic') throw new Error('Dynamic sessions cannot be merged');
+
+  // 2. Combine cards, removing duplicates by front text
+  const allCardsRaw = [...deck1.cards, ...deck2.cards];
+  const uniqueCardsMap = new Map();
+  
+  allCardsRaw.forEach(card => {
+    // Basic deduplication based on front text
+    if (!uniqueCardsMap.has(card.front.trim().toLowerCase())) {
+      uniqueCardsMap.set(card.front.trim().toLowerCase(), {
+        front: card.front,
+        back: card.back,
+        mastered: card.mastered
+      });
+    }
+  });
+
+  const mergedCards = Array.from(uniqueCardsMap.values());
+
+  // 3. Create the new merged deck
+  const newDeck = await createDeck(
+    newTitle,
+    newDescription,
+    mergedCards,
+    deck1.type
+  );
+
+  // 4. Optionally delete the old decks
+  // To be safe, we let the UI handle if it wants to delete them, 
+  // but typically we delete them after a successful merge.
+  await Promise.all([
+    deleteDeck(deckId1),
+    deleteDeck(deckId2)
+  ]);
+
+  return newDeck;
+}
+
+/**
+ * Checks if a user email exists in the system
+ * Note: This checks the public.users helper table or profile if exists,
+ * or handles based on auth attempt.
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  try {
+    // We try to sign in with a dummy password. 
+    // Supabase returns specific errors for "User not found" if configured.
+    // However, for better DX, we usually check a 'profiles' or 'users' table.
+    // If no profiles table exists, we can use a more clever approach.
+    // Direct query to public.profiles table
+    // We check if the email exists in our mirrored profiles table
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email.trim().toLowerCase())
+      .single();
+    
+    if (error) {
+       // PGRST116 means no rows found
+       return false;
+    }
+    
+    return !!data;
+  } catch {
+    return false;
+  }
+}
