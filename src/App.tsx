@@ -1020,23 +1020,9 @@ function App() {
 
   const renderCurrentScreen = () => {
     if (!state.isAuthenticated) {
-      if (state.initialChoice === 'notes') {
-        return (
-          <PageTransition>
-            <NotesPageScreen
-              onBack={() => setState(prev => ({ ...prev, initialChoice: 'auth' }))}
-              isAuthenticated={state.isAuthenticated}
-            />
-          </PageTransition>
-        );
-      }
-
       return (
         <PageTransition>
-          <SimpleAuthScreen 
-            onAuthSuccess={handleAuthSuccess} 
-            onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
-          />
+          <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
         </PageTransition>
       );
     }
@@ -1326,20 +1312,14 @@ function App() {
       case "auth":
         return (
           <PageTransition>
-            <SimpleAuthScreen 
-              onAuthSuccess={handleAuthSuccess} 
-              onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
-            />
+            <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
           </PageTransition>
         );
 
       default:
         return (
           <PageTransition>
-            <SimpleAuthScreen 
-              onAuthSuccess={handleAuthSuccess} 
-              onStartNotes={() => setState(prev => ({ ...prev, initialChoice: 'notes' }))}
-            />
+            <SimpleAuthScreen onAuthSuccess={handleAuthSuccess} />
           </PageTransition>
         );
     }
