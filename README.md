@@ -68,12 +68,6 @@ npm run dev
 
 ---
 
-## 📈 Roadmap
-- [x] **v1.3.3**: Archives Hub & Neural Merging.
-- [x] **v1.3.4**: Neural Chromesthesia & Preset Identities.
-- [ ] **v1.4.0**: VIM-style keyboard mastery for high-speed study.
-- [ ] **v1.5.0**: Collaborative "Study Nodes" for live group sessions.
-
 ## 📄 License
 Licensed under the MIT License. Built with passion for the future of education.
 
