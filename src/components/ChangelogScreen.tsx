@@ -19,12 +19,23 @@ interface ChangelogScreenProps {
   onBack: () => void;
 }
 
-export const APP_VERSION = '1.3.4';
+export const APP_VERSION = '1.3.5';
 
 export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
   const [openVersion, setOpenVersion] = useState<string | null>(APP_VERSION);
 
   const releases = [
+    {
+      version: '1.3.5',
+      description: 'Neural Gemini & Performance Tuning',
+      changes: [
+        'Gemini 2.5 Flash Migration: Upgraded the entire AI core to Google’s next-gen Flash engine',
+        'Neural Diagnostic Layer: Implemented real-time AI payload error surfacing for faster debugging',
+        'Model Synchronization: Resolved 404/400 model resolution conflicts across all Edge Functions',
+        'Creation Hub Realignment: Unified "Create New Deck" flow with the central navigation terminal',
+        'Dynamic Session Hardening: Optimized API handshakes for higher-frequency tutoring sessions'
+      ]
+    },
     {
       version: '1.3.4',
       description: 'Neural Presets & Visual Sync',
@@ -141,7 +152,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
               SYSTEM_LOGS
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              DEPLOYMENT_HISTORY :: v1.3.4
+              DEPLOYMENT_HISTORY :: v1.3.5
             </p>
           </div>
         </motion.div>
