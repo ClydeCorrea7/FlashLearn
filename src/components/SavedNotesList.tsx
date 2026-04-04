@@ -104,7 +104,7 @@ export const generatePDF = (subject: string, notes: NoteTopic[]) => {
       // 2. Description (Deep Point System)
       if (yOffset > 240) { doc.addPage(); yOffset = 25; }
       yOffset += drawSectionLabel('Description', yOffset);
-      note.description.forEach(desc => {
+      (note.description || []).forEach(desc => {
         if (typeof desc === 'string') {
           // Clean the text and ensure it starts with a single bullet
           const cleanText = desc.replace(/^[•◦\-\*\s]+/, '').trim();
@@ -129,7 +129,7 @@ export const generatePDF = (subject: string, notes: NoteTopic[]) => {
       if (note.examples && note.examples.length > 0) {
         if (yOffset > 240) { doc.addPage(); yOffset = 25; }
         yOffset += drawSectionLabel('Real-world Examples', yOffset);
-        note.examples.forEach(ex => {
+        (note.examples || []).forEach(ex => {
           yOffset += writeBodyText(`• ${ex}`, yOffset, 12, 'helvetica', 'normal', deepSlate);
           if (yOffset > 275) { doc.addPage(); yOffset = 25; }
         });

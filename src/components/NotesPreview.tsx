@@ -139,7 +139,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                 
                 {topic.keywords && topic.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-6 border-t border-white/5 mt-2">
-                    {topic.keywords.map((kw, i) => (
+                    {topic.keywords?.map((kw: string, i: number) => (
                       <span key={i} className="px-3 py-1 bg-white/[0.03] text-[9px] font-black rounded-lg border border-white/5 text-slate-600 uppercase tracking-widest hover:text-[var(--neon-blue)] hover:border-[var(--neon-blue)]/20 transition-all cursor-default">
                         # {kw}
                       </span>
