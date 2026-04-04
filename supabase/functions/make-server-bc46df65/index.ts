@@ -61,6 +61,74 @@ interface UserProgress {
   last_study_date?: string;
 }
 
+// AI Configuration with 10-Model Fallback Waterfall
+const AI_MODELS = [
+  "openai/gpt-4o-mini",                     // Primary: Balanced speed/quality
+  "google/gemini-flash-1.5",                // Runner up: Large context
+  "anthropic/claude-3-haiku",               // Intelligence: Best logic/speed
+  "meta-llama/llama-3.3-70b-instruct",       // SOTA open source
+  "mistralai/mistral-nemo",                 // Compact/Efficient
+  "google/gemini-2.0-flash-exp:free",       // Experimental High Speed
+  "deepseek/deepseek-chat",                 // Emerging Powerhouse
+  "qwen/qwen-turbo",                        // High Speed Multi-modal
+  "nvidia/llama-3.1-nemotron-70b-instruct:free", // Performance Free
+  "qwen/qwen-2.5-72b-instruct:free"         // Final Failover: Qwen 2.5 Plus (Free)
+];
+
+async function callOpenRouter(prompt: string, systemPrompt: string, temperature = 0.7) {
+  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
+
+  let lastError: any = null;
+
+  for (const model of AI_MODELS) {
+    try {
+      console.log(`[AI] Attempting generation with model: ${model}`);
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://flashlearn-ai.vercel.app",
+          "X-Title": "FlashLearn Neural Proxy"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+          ],
+          temperature: temperature
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[AI] Model ${model} failed with status ${response.status}:`, errText);
+        lastError = new Error(`Model ${model} failed: ${errText}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      
+      if (!content) {
+        console.warn(`[AI] Model ${model} returned empty content`);
+        continue;
+      }
+
+      console.log(`[AI] Successful generation using: ${model}`);
+      return content;
+    } catch (err: any) {
+      console.warn(`[AI] Fatal error with model ${model}:`, err.message);
+      lastError = err;
+      continue;
+    }
+  }
+
+  throw lastError || new Error("All AI models in the waterfall failed to respond.");
+}
+
 // Auth middleware
 const requireAuth = async (c: Context, next: () => Promise<void>) => {
   const purgeToken = c.req.header('x-purge-token');
@@ -512,80 +580,38 @@ app.post('/ai/generate-flashcards', async (c: Context) => {
       return c.json({ error: 'Topic is required' }, 400);
     }
 
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) {
-      console.log('Gemini API key not configured');
-      return c.json({ error: 'AI service not configured. Please add GEMINI_API_KEY.' }, 500);
+    const prompt = `Generate EXACTLY ${count} educational flashcards about "${topic}". 
+    YOU MUST RETURN EXACTLY ${count} ITEMS IN THE ARRAY.
+
+Difficulty level: ${difficulty}
+Language: ${language}
+
+Requirements:
+- Each flashcard should have a clear, concise question on the front
+- Each answer on the back should be informative but not too long (2-3 sentences max)
+- Return ONLY a valid JSON array strictly matching this format:
+[
+  {"front": "Question?", "back": "Answer."}
+]`;
+
+    const systemPrompt = "You are an expert digital tutor specializing in high-fidelity educational content. Respond ONLY with valid JSON.";
+    
+    const content = await callOpenRouter(prompt, systemPrompt);
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    let flashcards = JSON.parse(cleanContent);
+
+    if (!Array.isArray(flashcards)) {
+      // Emergency extraction for malformed arrays
+      const match = cleanContent.match(/\[.*\]/s);
+      if (match) flashcards = JSON.parse(match[0]);
+      else throw new Error("AI output was not a valid array");
     }
 
-    // Log masked API key for debugging
-    console.log('Gemini API Key present:', geminiKey ? `${geminiKey.substring(0, 7)}...${geminiKey.substring(geminiKey.length - 4)}` : 'NOT SET');
-    console.log('API Key length:', geminiKey?.length);
-
-    console.log('Calling Gemini API for topic:', topic);
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!content) {
-      console.log('No content in Gemini response:', data);
-      return c.json({ error: 'AI service returned no content' }, 500);
-    }
-
-    // Parse the JSON response
-    let flashcards;
-    try {
-      // Remove markdown code blocks if present
-      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      flashcards = JSON.parse(cleanContent);
-
-      if (!Array.isArray(flashcards)) {
-        throw new Error('Response is not an array');
-      }
-
-      // Validate flashcard format
-      flashcards = flashcards
-        .filter(card => card.front && card.back)
-        .map(card => ({
-          front: String(card.front).trim(),
-          back: String(card.back).trim()
-        }))
-        .slice(0, count); // Ensure we don't exceed requested count
-
-      if (flashcards.length === 0) {
-        throw new Error('No valid flashcards generated');
-      }
-
-    } catch (parseError) {
-      console.log('Failed to parse AI response:', content, parseError);
-      return c.json({
-        error: 'Failed to parse AI-generated flashcards. Please try again.'
-      }, 500);
-    }
-
-    console.log(`Successfully generated ${flashcards.length} flashcards for topic: ${topic}`);
+    flashcards = flashcards.slice(0, count);
 
     return c.json({
       flashcards,
-      metadata: {
-        topic,
-        count: flashcards.length,
-        difficulty,
-        generatedAt: new Date().toISOString()
-      }
+      metadata: { topic, count: flashcards.length, generatedAt: new Date().toISOString() }
     });
 
   } catch (error: unknown) {
@@ -601,8 +627,6 @@ app.post('/ai/generate-follow-up', async (c: Context) => {
   try {
     const { originalCard, performance, topic } = await c.req.json();
 
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     let instruction = '';
     if (performance === 'incorrect') {
@@ -620,31 +644,10 @@ Back: ${originalCard.back}
 Topic: ${topic}
 Goal: ${instruction}
 
-Requirements:
-- Maintain topic consistency
-- Avoid repetition
-- Adjust abstraction level accordingly
-- Return ONLY a valid JSON object: {"front": "...", "back": "..."}
+Return ONLY a valid JSON object: {"front": "...", "back": "..."}`;
 
-Do not include any other text.`;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('AI failed');
-
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const systemPrompt = "You are an adaptive learning assistant. Respond in JSON only.";
+    const content = await callOpenRouter(prompt, systemPrompt);
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const followUp = JSON.parse(cleanContent);
 
@@ -657,8 +660,6 @@ Do not include any other text.`;
 app.post('/ai/generate-mcq', async (c: Context) => {
   try {
     const { card } = await c.req.json();
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `Based on this flashcard, generate EXACTLY 3 plausible but incorrect distractors for a Multiple Choice Question.
 Question: ${card.front}
@@ -679,29 +680,8 @@ Requirements:
 
 Do not include any other text.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[AI MCQ] OpenRouter Error (${response.status}):`, errText);
-      throw new Error(`AI service responded with status ${response.status}: ${errText.substring(0, 100)}`);
-    }
-
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) throw new Error('Gemini returned empty content');
-    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const response = await callOpenRouter(prompt, "You are a professional educational content generator. Respond in JSON only.");
+    const cleanContent = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const { distractors } = JSON.parse(cleanContent);
 
     return c.json({ distractors });
@@ -713,8 +693,6 @@ Do not include any other text.`;
 app.post('/ai/dynamic/init', async (c: Context) => {
   try {
     const { topic, level, goal, contextStr } = await c.req.json();
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `You are an adaptive AI tutor starting a real-time learning session.
 Topic: ${topic}
@@ -727,22 +705,7 @@ Output strict JSON format:
 {"question": "...", "expected_concept": "...", "type": "definition"}
 Do not include markdown or other text.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('AI failed to initialize session');
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = await callOpenRouter(prompt, "You are an adaptive AI tutor. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     return c.json({ nextQuestion: JSON.parse(cleanContent) });
@@ -754,8 +717,6 @@ Do not include markdown or other text.`;
 app.post('/ai/dynamic/evaluate', async (c: Context) => {
   try {
     const { topic, level, goal, prev_q, expected_concept, user_ans } = await c.req.json();
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `You are an adaptive AI tutor evaluating a student.
 Topic: ${topic}
@@ -782,22 +743,7 @@ Output ONLY strict JSON:
 }
 Do not include markdown formatting or extra text.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('AI evaluation failed');
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const content = await callOpenRouter(prompt, "You are an adaptive AI tutor. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     return c.json(JSON.parse(cleanContent));
@@ -808,101 +754,23 @@ Do not include markdown formatting or extra text.`;
 app.post('/ai/generate-notes', async (c: Context) => {
   try {
     const { subject_context, topics, tone, examples_toggle } = await c.req.json();
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
-
+    
     const prompt = `You are an expert academic writer and an engaging teacher. Generate structured, exam-ready notes for EVERY topic provided. DO NOT skip or merge topics.
 
----
+Subject: ${subject_context}
+Tone: ${tone}
+Topics: ${topics}
+Examples: ${examples_toggle}
 
-# 🧠 GENERATION PROTOCOL (STRICT)
+Return ONLY a valid JSON array of objects. Each object represents a topic.`;
 
-1. TOTAL TOPIC COVERAGE:
-- You MUST generate a distinct section for EACH topic listed.
-- Use the provided Subject Context as the absolute lens for all analysis.
-- Subject: ${subject_context}
-
-2. DUAL-LAYER TONE HANDLING:
-- Tone Setting: ${tone === 'Professional' ? 'Direct & Formal' : 'Conversational & Intuitive'}
-- LAYER 1 (Definition/Description): MUST stay formal, academic, and direct. ${tone} DOES NOT apply here.
-- LAYER 2 (Explanation): ${tone} applies ONLY here. 
-    * If Playful: Use phrases like "Think about it this way..." or "Here’s what’s actually happening...". Stay smart and intuitive; NO pizza/cake analogies or generic metaphors.
-    * If Professional: Stay clear, formal, and direct.
-
-3. CLEAN FORMATTING & PDF PREP:
-- Use ONLY the standard bullet symbol: •
-- DO NOT use dashes (-), scenarios, or encoded symbols like %æ, §, ♦, ◦.
-- Every description point and example MUST start with "• ".
-- NO markdown symbols like # or **.
-
----
-
-# 🧱 STRUCTURE (PER TOPIC)
-
-Topic Title: [Topic]
-
-Definition:
-- Formal, academic, and specifically contextualized to ${subject_context}.
-
-Description:
-- 5–8 high-quality bullets (starting with •).
-- Each point must be a full, detailed sentence with subject-specific relevance.
-
-Explanation:
-- [TONE APPLIED HERE]
-- Break long lines. Ensure a breathable layout.
-
-Examples (If ${examples_toggle} is 'Include Examples'):
-- Provide 3–5 HIGH-QUALITY real-world examples from ${subject_context}.
-- Each example must be a full sentence starting with "• ".
-
-Keywords:
-- Relevant technical terms from the domain intersection.
-
----
-
-AI CONSTRAINTS:
-- Stop immediately if JSON is malformed.
-- Return ONLY a valid JSON array. Each object in the array represents a topic and has the following keys:
-  - "title" (string)
-  - "definition" (string)
-  - "description" (array of strings, every string MUST start with "• ")
-  - "explanation" (string)
-  - "examples" (array of strings, every string MUST start with "• ")
-  - "keywords" (array of strings)
-`;
-
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${prompt}` }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      })
-    });
-
-    if (!response.ok) throw new Error('AI generation failed');
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content) throw new Error("No content received from AI");
-
-    // Robust cleaning
-    const cleanContent = content
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
+    const content = await callOpenRouter(prompt, "You are an expert academic content writer. Respond in JSON only.");
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     let parsedNotes;
     try {
       parsedNotes = JSON.parse(cleanContent);
     } catch (e) {
-      // Sometimes the LLM includes explanatory text. Attempt to extract the [ ... ] part
       console.log('Failed to parse cleanContent natively. Trying to extract array blindly.', e);
       const match = cleanContent.match(/\[.*\]/s);
       if (match) {
