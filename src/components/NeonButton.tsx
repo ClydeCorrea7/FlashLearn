@@ -90,10 +90,7 @@ const NeonButton = React.forwardRef<HTMLButtonElement, NeonButtonProps>(({
         disabled={disabled}
         whileHover={disabled ? {} : { 
           scale: 1.05,
-          y: -2,
-          boxShadow: variant === 'primary' 
-            ? '0 0 30px rgba(59, 130, 246, 0.6), 0 0 60px rgba(139, 92, 246, 0.3)'
-            : '0 0 25px rgba(6, 182, 212, 0.4)'
+          y: -2
         }}
         whileTap={disabled ? {} : { 
           scale: 0.95,

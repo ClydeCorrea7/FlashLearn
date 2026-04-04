@@ -61,10 +61,7 @@ const AnimatedCard: React.FC<AnimatedCardProps> = ({
       }}
       whileHover={hover ? {
         scale: 1.02,
-        y: -4,
-        boxShadow: variant === 'neon' 
-          ? '0 0 25px rgba(59, 130, 246, 0.4), 0 8px 32px rgba(0,0,0,0.2)'
-          : '0 8px 32px rgba(0,0,0,0.15)'
+        y: -4
       } : {}}
       whileTap={onClick ? { scale: 0.98 } : {}}
       onClick={onClick}

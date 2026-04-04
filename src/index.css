@@ -419,31 +419,31 @@
 
   .neon-glow-blue {
     transition: box-shadow .3s ease-in-out;
-    box-shadow: 0 0 20px #3b82f666, 0 0 40px #3b82f633;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--neon-blue) 40%, transparent), 0 0 40px color-mix(in srgb, var(--neon-blue) 20%, transparent);
   }
 
   .neon-glow-blue:hover {
-    box-shadow: 0 0 30px #3b82f699, 0 0 60px #3b82f64d;
+    box-shadow: 0 0 30px color-mix(in srgb, var(--neon-blue) 60%, transparent), 0 0 60px color-mix(in srgb, var(--neon-blue) 30%, transparent);
   }
 
   .neon-glow-purple {
     transition: box-shadow .3s ease-in-out;
-    box-shadow: 0 0 20px #8b5cf666, 0 0 40px #8b5cf633;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--neon-purple) 40%, transparent), 0 0 40px color-mix(in srgb, var(--neon-purple) 20%, transparent);
   }
 
   .neon-glow-purple:hover {
-    box-shadow: 0 0 30px #8b5cf699, 0 0 60px #8b5cf64d;
+    box-shadow: 0 0 30px color-mix(in srgb, var(--neon-purple) 60%, transparent), 0 0 60px color-mix(in srgb, var(--neon-purple) 30%, transparent);
   }
 
   .neon-border-blue {
     border: 2px solid var(--neon-blue);
     transition: all .3s ease-in-out;
-    box-shadow: 0 0 15px var(--neon-blue);
+    box-shadow: 0 0 15px color-mix(in srgb, var(--neon-blue) 40%, transparent);
   }
 
   .neon-border-blue:hover {
     border-color: var(--neon-cyan);
-    box-shadow: 0 0 25px var(--neon-cyan);
+    box-shadow: 0 0 25px color-mix(in srgb, var(--neon-cyan) 40%, transparent);
   }
 
   .cyber-gradient {
