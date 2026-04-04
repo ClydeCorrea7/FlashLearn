@@ -118,18 +118,6 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
           throw new Error(signInError.message);
         }
 
-        if (data.user && !data.user.email_confirmed_at) {
-          setError('Email not verified. Please check your inbox or resend code.');
-          setIsLoading(false);
-          return;
-        }
-        
-        result = {
-          name: data.user?.user_metadata?.name || data.user?.email?.split('@')[0] || 'User',
-          email: data.user?.email || formData.email
-        };
-      } else {
-        // Sign up with Supabase - including name metadata
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -144,12 +132,11 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
           console.error("Signup error:", signUpError);
           throw new Error(signUpError.message);
         }
-        
-        // Inform user about email confirmation
-        alert(`Access Protocol Initiated!\nA synchronization link has been dispatched to: ${formData.email}.\n\nPlease verify your email to activate your neural link and complete the onboarding process.`);
-        setIsLogin(true);
-        setIsLoading(false);
-        return;
+
+        result = {
+          name: formData.name || 'Learner',
+          email: formData.email
+        };
       }
       
       onAuthSuccess(result);

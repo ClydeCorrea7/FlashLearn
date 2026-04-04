@@ -250,20 +250,6 @@ function App() {
         // User is logged in
         const user = session.user;
 
-        // Strict Check: Check if email is confirmed
-        if (!user.email_confirmed_at) {
-          console.warn("Session detected but email not confirmed.");
-          await supabase.auth.signOut();
-          setState((prev) => ({
-            ...prev,
-            isAuthenticated: false,
-            currentScreen: "auth",
-            user: null,
-            isLoading: false
-          }));
-          return;
-        }
-
         setState((prev) => ({
           ...prev,
           isAuthenticated: true,
