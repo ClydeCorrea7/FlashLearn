@@ -61,72 +61,69 @@ interface UserProgress {
   last_study_date?: string;
 }
 
-// AI Configuration with 10-Model Fallback Waterfall
+// ============================================
+// AI Waterfall Logic
+// ============================================
+
 const AI_MODELS = [
-  "openai/gpt-4o-mini",                     // Primary: Balanced speed/quality
-  "google/gemini-flash-1.5",                // Runner up: Large context
-  "anthropic/claude-3-haiku",               // Intelligence: Best logic/speed
-  "meta-llama/llama-3.3-70b-instruct",       // SOTA open source
-  "mistralai/mistral-nemo",                 // Compact/Efficient
-  "google/gemini-2.0-flash-exp:free",       // Experimental High Speed
-  "deepseek/deepseek-chat",                 // Emerging Powerhouse
-  "qwen/qwen-turbo",                        // High Speed Multi-modal
-  "nvidia/llama-3.1-nemotron-70b-instruct:free", // Performance Free
-  "qwen/qwen-2.5-72b-instruct:free"         // Final Failover: Qwen 2.5 Plus (Free)
+  "openai/gpt-4o-mini",
+  "anthropic/claude-3-haiku",
+  "google/gemini-flash-1.5",
+  "meta-llama/llama-3.1-8b-instruct",
+  "qwen/qwen-2-72b-instruct" // Qwen as final fallback
 ];
 
-async function callOpenRouter(prompt: string, systemPrompt: string, temperature = 0.7) {
-  const apiKey = Deno.env.get('OPENROUTER_API_KEY');
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY not configured');
+async function callAIWaterfall(options: {
+  messages: any[];
+  temperature?: number;
+  max_tokens?: number;
+  response_format?: any;
+}) {
+  const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!openrouterKey) throw new Error('AI service not configured');
 
   let lastError: any = null;
 
   for (const model of AI_MODELS) {
     try {
-      console.log(`[AI] Attempting generation with model: ${model}`);
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
+      console.log(`[Waterfall] Attempting generation with model: ${model}`);
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://flashlearn-ai.vercel.app",
-          "X-Title": "FlashLearn Neural Proxy"
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openrouterKey}`,
+          'HTTP-Referer': 'https://flashlearn.app',
+          'X-Title': 'FlashLearn AI Service'
         },
         body: JSON.stringify({
           model: model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: prompt }
-          ],
-          temperature: temperature
+          messages: options.messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.max_tokens ?? 2000,
+          response_format: options.response_format
         })
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        console.warn(`[AI] Model ${model} failed with status ${response.status}:`, errText);
-        lastError = new Error(`Model ${model} failed: ${errText}`);
-        continue;
+        const errorText = await response.text();
+        throw new Error(`Model ${model} failed (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
       
-      if (!content) {
-        console.warn(`[AI] Model ${model} returned empty content`);
-        continue;
-      }
+      if (!content) throw new Error(`Model ${model} returned empty content`);
 
-      console.log(`[AI] Successful generation using: ${model}`);
+      console.log(`[Waterfall] Success with model: ${model}`);
       return content;
     } catch (err: any) {
-      console.warn(`[AI] Fatal error with model ${model}:`, err.message);
+      console.error(`[Waterfall] Model ${model} failed:`, err.message);
       lastError = err;
-      continue;
+      continue; // Move to next model
     }
   }
 
-  throw lastError || new Error("All AI models in the waterfall failed to respond.");
+  throw new Error(`Waterfall failed after all models. Last error: ${lastError?.message}`);
 }
 
 // Auth middleware
@@ -190,7 +187,6 @@ const requireAuth = async (c: Context, next: () => Promise<void>) => {
   return c.json({ error: 'Unauthorized: Invalid token format' }, 401);
 };
 
-// Auth Routes
 // Auth Routes
 app.delete('/auth/account', requireAuth, async (c: Context) => {
   return handleDeleteAccount(c);
@@ -589,37 +585,66 @@ Language: ${language}
 Requirements:
 - Each flashcard should have a clear, concise question on the front
 - Each answer on the back should be informative but not too long (2-3 sentences max)
-- Return ONLY a valid JSON array strictly matching this format:
+- Cover different aspects of the topic
+- Make questions progressively challenging
+- Ensure questions test understanding, not just memorization
+
+Return ONLY a valid JSON array with this exact format:
 [
-  {"front": "Question?", "back": "Answer."}
-]`;
+  {
+    "front": "Question here?",
+    "back": "Answer here."
+  }
+]
 
-    const systemPrompt = "You are an expert digital tutor specializing in high-fidelity educational content. Respond ONLY with valid JSON.";
-    
-    const content = await callOpenRouter(prompt, systemPrompt);
-    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    let flashcards = JSON.parse(cleanContent);
+Do not include any markdown, explanations, or additional text. Just the JSON array.`;
 
-    if (!Array.isArray(flashcards)) {
-      // Emergency extraction for malformed arrays
-      const match = cleanContent.match(/\[.*\]/s);
-      if (match) flashcards = JSON.parse(match[0]);
-      else throw new Error("AI output was not a valid array");
+    console.log('Calling AI Waterfall for topic:', topic);
+
+    const content = await callAIWaterfall({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert educational content creator. Always respond with valid JSON only.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    });
+
+    // Parse the JSON response
+    let flashcards;
+    try {
+      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      flashcards = JSON.parse(cleanContent);
+
+      if (!Array.isArray(flashcards)) throw new Error('Response is not an array');
+
+      flashcards = flashcards
+        .filter(card => card.front && card.back)
+        .map(card => ({
+          front: String(card.front).trim(),
+          back: String(card.back).trim()
+        }))
+        .slice(0, count);
+
+      if (flashcards.length === 0) throw new Error('No valid flashcards generated');
+
+    } catch (parseError: any) {
+      console.log('Failed to parse AI response:', content, parseError);
+      return c.json({ error: 'Failed to parse AI-generated flashcards.' }, 500);
     }
-
-    flashcards = flashcards.slice(0, count);
 
     return c.json({
       flashcards,
-      metadata: { topic, count: flashcards.length, generatedAt: new Date().toISOString() }
+      metadata: { topic, count: flashcards.length, difficulty, generatedAt: new Date().toISOString() }
     });
 
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.log('AI generation error:', err);
-    return c.json({
-      error: `Failed to generate flashcards: ${err?.message || 'Unknown error'}`
-    }, 500);
+  } catch (error: any) {
+    console.log('AI generation error:', error);
+    return c.json({ error: `Failed to generate flashcards: ${error.message}` }, 500);
   }
 });
 
@@ -627,27 +652,24 @@ app.post('/ai/generate-follow-up', async (c: Context) => {
   try {
     const { originalCard, performance, topic } = await c.req.json();
 
-
     let instruction = '';
     if (performance === 'incorrect') {
-       instruction = 'The user got this WRONG. Generate a SIMPLER version of this question or a HINT-BASED question to help them build intuition.';
+       instruction = 'The user got this WRONG. Generate a SIMPLER version of this question.';
     } else if (performance === 'correct-slow') {
-       instruction = 'The user got this RIGHT but was SLOW. Generate a SIMILAR level question with a slight variation to reinforce the concept.';
+       instruction = 'The user got this RIGHT but was SLOW. Generate a SIMILAR variation.';
     } else {
-       instruction = 'The user got this RIGHT and FAST. Generate a HARDER, more conceptual, or scenario-based variation to push their knowledge.';
+       instruction = 'The user got this RIGHT and FAST. Generate a HARDER variation.';
     }
 
-    const prompt = `Based on this flashcard:
-Front: ${originalCard.front}
-Back: ${originalCard.back}
+    const prompt = `Based on this: Front: ${originalCard.front}, Back: ${originalCard.back}. Topic: ${topic}. Goal: ${instruction}. Return ONLY JSON: {"front": "...", "back": "..."}`;
 
-Topic: ${topic}
-Goal: ${instruction}
+    const content = await callAIWaterfall({
+      messages: [
+        { role: 'system', content: 'You are an adaptive learning assistant. Respond in JSON.' },
+        { role: 'user', content: prompt }
+      ]
+    });
 
-Return ONLY a valid JSON object: {"front": "...", "back": "..."}`;
-
-    const systemPrompt = "You are an adaptive learning assistant. Respond in JSON only.";
-    const content = await callOpenRouter(prompt, systemPrompt);
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const followUp = JSON.parse(cleanContent);
 
@@ -660,28 +682,20 @@ Return ONLY a valid JSON object: {"front": "...", "back": "..."}`;
 app.post('/ai/generate-mcq', async (c: Context) => {
   try {
     const { card } = await c.req.json();
-
-    const prompt = `Based on this flashcard, generate EXACTLY 3 plausible but incorrect distractors for a Multiple Choice Question.
+    const prompt = `Based on this flashcard, generate EXACTLY 3 plausible distractors for a Multiple Choice Question.
 Question: ${card.front}
 Correct Answer: ${card.back}
+Return ONLY JSON: {"distractors": ["...", "...", "..."]}`;
 
-Requirements:
-- Distractors MUST be contextually relevant and plausible.
-- Distractors MUST be similar in length and complexity to the correct answer.
-- Distractors MUST NOT be obviously wrong or humorous.
-- Return ONLY a valid JSON object strictly adhering to this exact format:
-{
-  "distractors": [
-    "First plausible incorrect answer",
-    "Second plausible incorrect answer",
-    "Third plausible incorrect answer"
-  ]
-}
+    const content = await callAIWaterfall({
+      messages: [
+        { role: 'system', content: 'You are a professional educational content generator. Respond in JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' }
+    });
 
-Do not include any other text.`;
-
-    const response = await callOpenRouter(prompt, "You are a professional educational content generator. Respond in JSON only.");
-    const cleanContent = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const { distractors } = JSON.parse(cleanContent);
 
     return c.json({ distractors });
@@ -693,21 +707,16 @@ Do not include any other text.`;
 app.post('/ai/dynamic/init', async (c: Context) => {
   try {
     const { topic, level, goal, contextStr } = await c.req.json();
+    const prompt = `Topic: ${topic}, Level: ${level}, Goal: ${goal}, Context: ${contextStr || 'None'}. Generate FIRST foundational question. JSON: {"question": "...", "expected_concept": "...", "type": "definition"}`;
 
-    const prompt = `You are an adaptive AI tutor starting a real-time learning session.
-Topic: ${topic}
-User Level: ${level}
-Goal: ${goal}
-Context: ${contextStr || 'None'}
+    const content = await callAIWaterfall({
+      messages: [
+        { role: 'system', content: 'You are an adaptive learning assistant. Respond in JSON only.' },
+        { role: 'user', content: prompt }
+      ]
+    });
 
-Generate the FIRST foundational question to assess the user's understanding.
-Output strict JSON format:
-{"question": "...", "expected_concept": "...", "type": "definition"}
-Do not include markdown or other text.`;
-
-    const content = await callOpenRouter(prompt, "You are an adaptive AI tutor. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
     return c.json({ nextQuestion: JSON.parse(cleanContent) });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
@@ -717,124 +726,52 @@ Do not include markdown or other text.`;
 app.post('/ai/dynamic/evaluate', async (c: Context) => {
   try {
     const { topic, level, goal, prev_q, expected_concept, user_ans } = await c.req.json();
+    const prompt = `Evaluate answer for topic: ${topic}. Prev Q: ${prev_q}, Expected: ${expected_concept}, User: ${user_ans}. Return JSON: {"status": "correct|partial|wrong", "feedback": "...", "nextQuestion": {"question": "...", "expected_concept": "...", "type": "..."}}`;
 
-    const prompt = `You are an adaptive AI tutor evaluating a student.
-Topic: ${topic}
-User Level: ${level}
-Goal: ${goal}
+    const content = await callAIWaterfall({
+      messages: [
+        { role: 'system', content: 'You are an adaptive tutor. Respond ONLY with JSON.' },
+        { role: 'user', content: prompt }
+      ]
+    });
 
-Previous Question: ${prev_q}
-Expected Concept: ${expected_concept}
-User Answer: ${user_ans}
-
-1. Evaluate the answer. Focus on whether they grasp the concept. Status must be "correct", "partial", or "wrong".
-2. Provide short constructive feedback.
-3. Generate the NEXT question based on their performance. If wrong, simplify. If correct, increase difficulty.
-
-Output ONLY strict JSON:
-{
-  "status": "correct",
-  "feedback": "...",
-  "nextQuestion": {
-    "question": "...",
-    "expected_concept": "...",
-    "type": "scenario"
-  }
-}
-Do not include markdown formatting or extra text.`;
-
-    const content = await callOpenRouter(prompt, "You are an adaptive AI tutor. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
     return c.json(JSON.parse(cleanContent));
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
 });
+
 app.post('/ai/generate-notes', async (c: Context) => {
   try {
     const { subject_context, topics, tone, examples_toggle } = await c.req.json();
-    
-    const prompt = `You are an expert academic writer and an engaging teacher. Generate structured, exam-ready notes for EVERY topic provided. DO NOT skip or merge topics.
+    const prompt = `Generate structured notes for topics: ${topics.join(', ')}. Context: ${subject_context}. Tone: ${tone}. Examples: ${examples_toggle}. Return valid JSON array of objects.`;
 
----
+    const content = await callAIWaterfall({
+      messages: [
+        { role: 'system', content: 'You are an expert academic content writer. Respond ONLY with valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 4000
+    });
 
-# 🧠 GENERATION PROTOCOL (STRICT)
-
-1. TOTAL TOPIC COVERAGE:
-- You MUST generate a distinct section for EACH topic listed.
-- Use the provided Subject Context as the absolute lens for all analysis.
-- Subject: ${subject_context}
-
-2. DUAL-LAYER TONE HANDLING:
-- Tone Setting: ${tone}
-- LAYER 1 (Definition/Description): MUST stay formal, academic, and direct.
-- LAYER 2 (Explanation): ${tone} applies ONLY here. 
-    * If Playful: Use phrases like "Think about it this way..." or "Here’s what’s actually happening...". Stay smart and intuitive.
-    * If Professional: Stay clear, formal, and direct.
-
-3. CLEAN FORMATTING & PDF PREP:
-- Use ONLY the standard bullet symbol: •
-- Every description point and example MUST start with "• ".
-
----
-
-# 🧱 STRUCTURE (PER TOPIC)
-Return ONLY a valid JSON array. Each object in the array represents a topic and MUST have these keys:
-- "title" (string)
-- "definition" (string)
-- "description" (array of strings, every string MUST start with "• ")
-- "explanation" (string)
-- "examples" (array of strings, every string MUST start with "• ")
-- "keywords" (array of strings)
-
-Topic Context: ${topics}
-Examples Protocol: ${examples_toggle}
-`;
-
-    const content = await callOpenRouter(prompt, "You are an expert academic content writer. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
     let parsedNotes;
     try {
       parsedNotes = JSON.parse(cleanContent);
     } catch (e) {
-      console.log('Failed to parse cleanContent natively. Trying to extract array blindly.', e);
       const match = cleanContent.match(/\[.*\]/s);
-      if (match) {
-        try {
-          parsedNotes = JSON.parse(match[0]);
-        } catch (e2) {
-          console.error("Critical parse failure:", cleanContent);
-          throw new Error("Unable to parse AI response as JSON");
-        }
-      } else {
-        console.error("No JSON array format found:", cleanContent);
-        throw new Error("Data was not formatted correctly as array");
-      }
+      if (match) parsedNotes = JSON.parse(match[0]);
+      else throw new Error("Invalid JSON notes format");
     }
     
     return c.json({ notes: parsedNotes });
   } catch (error: any) {
-    console.error("AI Generate Notes Error:", error);
     return c.json({ error: error.message }, 500);
   }
 });
 
-// Handle both naked paths and paths prefixed with the function name
-// This is a common requirement in Supabase Edge Functions with Hono
 const routes = app.routes;
-
-app.notFound((c) => {
-  const path = new URL(c.req.url).pathname;
-  console.log(`[Hono] 404 at ${path}`);
-  return c.json({
-    error: `Route not found: ${path}. Please check your API URL.`,
-    availableRoutes: routes.map(r => `${r.method} ${r.path}`)
-  }, 404);
-});
-
-// Map routes to handle the function name prefix correctly
 for (const route of routes) {
   if (route.path.startsWith('/ai') || route.path.startsWith('/auth') || route.path.startsWith('/decks') || route.path.startsWith('/progress')) {
     app.on(route.method, `/make-server-bc46df65${route.path}`, route.handler);

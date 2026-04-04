@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { NeonButton } from './NeonButton';
 import { AnimatedCard } from './AnimatedCard';
 import { Brain, Send, ArrowLeft, Loader2, Sparkles, User, Bot, Target, Download, Home } from 'lucide-react';
+import { apiCall } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { jsPDF } from 'jspdf';
 
@@ -65,18 +66,10 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/dynamic/init`, {
+      const data = await apiCall('/ai/dynamic/init', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'apikey': publicAnonKey
-        },
         body: JSON.stringify({ topic, level, goal, contextStr })
       });
-      
-      if (!response.ok) throw new Error('Failed to initialize session');
-      const data = await response.json();
       
       const { nextQuestion } = data;
       currentQuestionRef.current = nextQuestion;
@@ -123,13 +116,8 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/dynamic/evaluate`, {
+      const data = await apiCall('/ai/dynamic/evaluate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'apikey': publicAnonKey
-        },
          body: JSON.stringify({
            topic,
            level,
@@ -139,9 +127,6 @@ export const DynamicSession: React.FC<DynamicSessionProps> = ({ onClose }) => {
            user_ans: overrideStr === "I don't know the answer. Please explain it to me." ? "I don't know" : userMessage.content
          })
       });
-      
-      if (!response.ok) throw new Error('Failed to evaluate response');
-      const data = await response.json();
       
       const { status, feedback, nextQuestion } = data;
       

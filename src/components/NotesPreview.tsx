@@ -87,7 +87,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                     Neural Breakdown
                   </label>
                   <div className="space-y-5 pl-1">
-                    {topic.description?.map((desc, i) => {
+                    {topic.description.map((desc, i) => {
                       if (typeof desc === 'string') {
                         return (
                           <div key={i} className="flex gap-5 group/item">
@@ -95,7 +95,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                             <span className="text-slate-400 group-hover:text-slate-200 transition-colors leading-relaxed tracking-wide text-[14px]">{desc}</span>
                           </div>
                         );
-                      } else if (desc?.subPoint) {
+                      } else if (desc.subPoint) {
                         return (
                           <div key={i} className="ml-11 space-y-3.5 border-l border-white/5 pl-6 py-1">
                             {desc.subPoint.map((sub, j) => (
@@ -126,20 +126,20 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                         <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-600 pl-1">
                            Pragmatic Use-Cases
                         </label>
-                        <ul className="space-y-4 list-none p-0 m-0">
-                            {topic.examples?.map((ex, i) => (
+                        <ul className="space-y-3 list-none p-0 m-0">
+                            {topic.examples.map((ex, i) => (
                                 <li key={i} className="text-xs text-slate-500 bg-white/[0.01] p-3 rounded-xl border border-white/5 hover:border-white/10 transition-colors flex gap-3 text-left">
                                     <span className="text-[var(--neon-purple)] font-black">»</span>
                                     {ex}
                                 </li>
-                            )) || <li className="text-xs text-slate-600 italic">No examples generated</li>}
+                            ))}
                         </ul>
                     </div>
                 </div>
                 
                 {topic.keywords && topic.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-6 border-t border-white/5 mt-2">
-                    {topic.keywords?.map((kw: string, i: number) => (
+                    {topic.keywords.map((kw, i) => (
                       <span key={i} className="px-3 py-1 bg-white/[0.03] text-[9px] font-black rounded-lg border border-white/5 text-slate-600 uppercase tracking-widest hover:text-[var(--neon-blue)] hover:border-[var(--neon-blue)]/20 transition-all cursor-default">
                         # {kw}
                       </span>

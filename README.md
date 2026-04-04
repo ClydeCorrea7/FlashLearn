@@ -1,4 +1,4 @@
-# FlashLearn: AI-Powered Adaptive Learning Ecosystem (v1.3.7)
+# FlashLearn: AI-Powered Adaptive Learning Ecosystem (v1.3.4)
 
 **🚀 Live Demo:** [flash-learn-iota.vercel.app](https://flash-learn-iota.vercel.app/)
 
@@ -9,7 +9,7 @@ FlashLearn is a high-fidelity, cinematic learning platform designed to master co
 ## 🚀 The Vision: Mastery at the Speed of Intelligence
 In an age of information overload, FlashLearn acts as your personal cognitive architect. It distills vast subjects into manageable, mastered neural links, using precision-engineered study protocols and real-time AI feedback.
 
-## ✨ Key Features (v1.3.7)
+## ✨ Key Features (v1.3.4)
 
 ### 🎨 Neural Presets & Chromesthesia (New in v1.3.4)
 Personalize your learning environment with professionally calibrated visual identities.
@@ -41,7 +41,7 @@ Our flagship feature. The AI shifts from a static reader to an **Active Mentor**
 *   **Frontend**: React (Vite-optimized), TypeScript, Tailwind CSS
 *   **Animations**: Framer Motion (v12)
 *   **Backend**: Supabase (Auth, RLS, PostgreSQL, Edge Functions)
-*   **AI Engine**: OpenRouter Neural Waterfall (10-Model Failover Cluster inc. GPT, Gemini, Claude, Llama, Qwen)
+*   **AI Engine**: OpenAI Cognitive Model (GPT-4o-mini via Global Server Context)
 *   **Styling**: Custom CSS Variable Engine (Neural Chromesthesia)
 *   **Export Engine**: jsPDF
 

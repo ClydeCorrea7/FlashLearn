@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { NotesForm } from './NotesForm';
 import { NotesPreview, NoteTopic } from './NotesPreview';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
-import { supabase } from '../utils/supabase/client';
+import { apiCall, supabase } from '../utils/supabase/client';
 import { PageTransition } from './PageTransition';
 import { SavedNotesList, generatePDF } from './SavedNotesList';
 
@@ -57,12 +56,8 @@ export const NotesPage: React.FC<NotesPageProps> = ({ onBack, isAuthenticated = 
     }
 
     try {
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-bc46df65/ai/generate-notes`, {
+      const data = await apiCall('/ai/generate-notes', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
         body: JSON.stringify({
           subject_context: subject,
           topics,
@@ -70,12 +65,6 @@ export const NotesPage: React.FC<NotesPageProps> = ({ onBack, isAuthenticated = 
           examples_toggle: examplesToggle ? 'Include Examples' : 'No Examples'
         })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate notes');
-      }
-
-      const data = await response.json();
       if (data.notes && Array.isArray(data.notes)) {
         generationCache.set(cacheKey, data.notes);
         setGeneratedNotes(data.notes);
