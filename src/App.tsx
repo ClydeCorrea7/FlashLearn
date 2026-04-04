@@ -1029,7 +1029,7 @@ function App() {
               onCreateDeck={() =>
                 setState((prev) => ({
                   ...prev,
-                  currentScreen: "create-deck",
+                  currentScreen: "create",
                 }))
               }
               onOpenDeck={handleOpenDeck}
@@ -1135,7 +1135,7 @@ function App() {
               onCreateDeck={() =>
                 setState((prev) => ({
                   ...prev,
-                  currentScreen: "create-deck",
+                  currentScreen: "create",
                 }))
               }
               onOpenDeck={handleOpenDeck}
