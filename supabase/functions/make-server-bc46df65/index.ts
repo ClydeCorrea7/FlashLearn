@@ -757,12 +757,40 @@ app.post('/ai/generate-notes', async (c: Context) => {
     
     const prompt = `You are an expert academic writer and an engaging teacher. Generate structured, exam-ready notes for EVERY topic provided. DO NOT skip or merge topics.
 
-Subject: ${subject_context}
-Tone: ${tone}
-Topics: ${topics}
-Examples: ${examples_toggle}
+---
 
-Return ONLY a valid JSON array of objects. Each object represents a topic.`;
+# 🧠 GENERATION PROTOCOL (STRICT)
+
+1. TOTAL TOPIC COVERAGE:
+- You MUST generate a distinct section for EACH topic listed.
+- Use the provided Subject Context as the absolute lens for all analysis.
+- Subject: ${subject_context}
+
+2. DUAL-LAYER TONE HANDLING:
+- Tone Setting: ${tone}
+- LAYER 1 (Definition/Description): MUST stay formal, academic, and direct.
+- LAYER 2 (Explanation): ${tone} applies ONLY here. 
+    * If Playful: Use phrases like "Think about it this way..." or "Here’s what’s actually happening...". Stay smart and intuitive.
+    * If Professional: Stay clear, formal, and direct.
+
+3. CLEAN FORMATTING & PDF PREP:
+- Use ONLY the standard bullet symbol: •
+- Every description point and example MUST start with "• ".
+
+---
+
+# 🧱 STRUCTURE (PER TOPIC)
+Return ONLY a valid JSON array. Each object in the array represents a topic and MUST have these keys:
+- "title" (string)
+- "definition" (string)
+- "description" (array of strings, every string MUST start with "• ")
+- "explanation" (string)
+- "examples" (array of strings, every string MUST start with "• ")
+- "keywords" (array of strings)
+
+Topic Context: ${topics}
+Examples Protocol: ${examples_toggle}
+`;
 
     const content = await callOpenRouter(prompt, "You are an expert academic content writer. Respond in JSON only.");
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
