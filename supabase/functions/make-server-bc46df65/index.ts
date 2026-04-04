@@ -512,92 +512,36 @@ app.post('/ai/generate-flashcards', async (c: Context) => {
       return c.json({ error: 'Topic is required' }, 400);
     }
 
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) {
-      console.log('OpenRouter API key not configured');
-      return c.json({ error: 'AI service not configured. Please add OPENROUTER_API_KEY.' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) {
+      console.log('Gemini API key not configured');
+      return c.json({ error: 'AI service not configured. Please add GEMINI_API_KEY.' }, 500);
     }
 
     // Log masked API key for debugging
-    console.log('OpenRouter API Key present:', openrouterKey ? `${openrouterKey.substring(0, 7)}...${openrouterKey.substring(openrouterKey.length - 4)}` : 'NOT SET');
-    console.log('API Key length:', openrouterKey?.length);
+    console.log('Gemini API Key present:', geminiKey ? `${geminiKey.substring(0, 7)}...${geminiKey.substring(geminiKey.length - 4)}` : 'NOT SET');
+    console.log('API Key length:', geminiKey?.length);
 
-    // Call OpenRouter API to generate flashcards
-    const prompt = `Generate EXACTLY ${count} educational flashcards about "${topic}". 
-    YOU MUST RETURN EXACTLY ${count} ITEMS IN THE ARRAY.
+    console.log('Calling Gemini API for topic:', topic);
 
-Difficulty level: ${difficulty}
-Language: ${language}
-
-Requirements:
-- Each flashcard should have a clear, concise question on the front
-- Each answer on the back should be informative but not too long (2-3 sentences max)
-- Cover different aspects of the topic
-- Make questions progressively challenging
-- Ensure questions test understanding, not just memorization
-
-Return ONLY a valid JSON array with this exact format:
-[
-  {
-    "front": "Question here?",
-    "back": "Answer here."
-  }
-]
-
-Do not include any markdown, explanations, or additional text. Just the JSON array.`;
-
-    console.log('Calling OpenRouter API for topic:', topic);
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-        'HTTP-Referer': 'https://flashlearn.app',
-        'X-Title': 'FlashLearn AI Generator'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert educational content creator specializing in creating effective flashcards for learning. Always respond with valid JSON only. It is critical that you provide exactly the number of flashcards requested.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.log('OpenRouter API HTTP Status:', response.status);
-      console.log('OpenRouter API Error Response:', errorData);
-
-      // Try to parse error details
-      let errorMessage = `AI generation failed (${response.status})`;
-      try {
-        const errorJson = JSON.parse(errorData);
-        errorMessage = errorJson.error?.message || errorMessage;
-        console.log('Parsed error:', errorJson);
-      } catch (e) {
-        console.log('Could not parse error response as JSON');
-      }
-
-      return c.json({
-        error: errorMessage
-      }, response.status as any);
-    }
-
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
-      console.log('No content in OpenRouter response:', data);
+      console.log('No content in Gemini response:', data);
       return c.json({ error: 'AI service returned no content' }, 500);
     }
 
@@ -657,8 +601,8 @@ app.post('/ai/generate-follow-up', async (c: Context) => {
   try {
     const { originalCard, performance, topic } = await c.req.json();
 
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     let instruction = '';
     if (performance === 'incorrect') {
@@ -684,26 +628,23 @@ Requirements:
 
 Do not include any other text.`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an adaptive learning assistant.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 
     if (!response.ok) throw new Error('AI failed');
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const followUp = JSON.parse(cleanContent);
 
@@ -716,8 +657,8 @@ Do not include any other text.`;
 app.post('/ai/generate-mcq', async (c: Context) => {
   try {
     const { card } = await c.req.json();
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `Based on this flashcard, generate EXACTLY 3 plausible but incorrect distractors for a Multiple Choice Question.
 Question: ${card.front}
@@ -738,27 +679,28 @@ Requirements:
 
 Do not include any other text.`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: 'You are a professional educational content generator. You must respond in valid JSON matching the exact format requested.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 
-    if (!response.ok) throw new Error('AI failed');
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[AI MCQ] OpenRouter Error (${response.status}):`, errText);
+      throw new Error(`AI service responded with status ${response.status}: ${errText.substring(0, 100)}`);
+    }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) throw new Error('Gemini returned empty content');
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const { distractors } = JSON.parse(cleanContent);
 
@@ -771,8 +713,8 @@ Do not include any other text.`;
 app.post('/ai/dynamic/init', async (c: Context) => {
   try {
     const { topic, level, goal, contextStr } = await c.req.json();
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `You are an adaptive AI tutor starting a real-time learning session.
 Topic: ${topic}
@@ -785,25 +727,22 @@ Output strict JSON format:
 {"question": "...", "expected_concept": "...", "type": "definition"}
 Do not include markdown or other text.`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an adaptive learning assistant. Respond in JSON only.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 
     if (!response.ok) throw new Error('AI failed to initialize session');
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     return c.json({ nextQuestion: JSON.parse(cleanContent) });
@@ -815,8 +754,8 @@ Do not include markdown or other text.`;
 app.post('/ai/dynamic/evaluate', async (c: Context) => {
   try {
     const { topic, level, goal, prev_q, expected_concept, user_ans } = await c.req.json();
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `You are an adaptive AI tutor evaluating a student.
 Topic: ${topic}
@@ -843,25 +782,22 @@ Output ONLY strict JSON:
 }
 Do not include markdown formatting or extra text.`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an adaptive AI tutor. Respond ONLY with valid JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 
     if (!response.ok) throw new Error('AI evaluation failed');
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
     const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
     return c.json(JSON.parse(cleanContent));
@@ -872,8 +808,8 @@ Do not include markdown formatting or extra text.`;
 app.post('/ai/generate-notes', async (c: Context) => {
   try {
     const { subject_context, topics, tone, examples_toggle } = await c.req.json();
-    const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
-    if (!openrouterKey) return c.json({ error: 'AI service not configured' }, 500);
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) return c.json({ error: 'AI service not configured' }, 500);
 
     const prompt = `You are an expert academic writer and an engaging teacher. Generate structured, exam-ready notes for EVERY topic provided. DO NOT skip or merge topics.
 
@@ -937,20 +873,16 @@ AI CONSTRAINTS:
 `;
 
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are an expert academic content writer. Respond ONLY with valid JSON.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
+        contents: [{
+          parts: [{ text: `${prompt}` }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+        }
       })
     });
 

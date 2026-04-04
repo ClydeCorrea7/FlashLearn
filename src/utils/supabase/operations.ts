@@ -568,7 +568,10 @@ export async function generateMCQOptions(card: Card): Promise<MCQOption[]> {
       }
     );
 
-    if (!response.ok) throw new Error('AI failed');
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: 'Unknown server error' }));
+      throw new Error(errData.error || `AI Request Failed with status ${response.status}`);
+    }
 
     const data = await response.json();
     const distractors: string[] = data.distractors;
