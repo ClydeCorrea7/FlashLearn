@@ -19,12 +19,33 @@ interface ChangelogScreenProps {
   onBack: () => void;
 }
 
-export const APP_VERSION = '1.3.5';
+export const APP_VERSION = '1.3.7';
 
 export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
   const [openVersion, setOpenVersion] = useState<string | null>(APP_VERSION);
 
   const releases = [
+    {
+      version: '1.3.7',
+      description: 'Neural Decapolis: 10-Model Waterfall',
+      changes: [
+        'OpenRouter Integration Re-Stabilized: Migrated back to OpenRouter for maximum model diversity',
+        'Model Waterfall Protocol: Implemented an 10-model fallback sequence for absolute AI availability',
+        'Intelligence Hierarchy: GPT-4o-mini (Primary) ➔ Gemini 1.5/2.0 ➔ Claude 3 ➔ Llama 3.3 ➔ Qwen 2.5 (Sentinel)',
+        'Neural Proxy Optimization: Centralized AI utility layer to handle multi-provider handshakes',
+        'Failover Persistence: Automatic ripple-down logic during provider timeouts or rate limits',
+        'Environmental Sync: Deprecated GEMINI_API_KEY in favor of a global OPENROUTER_API_KEY'
+      ]
+    },
+    {
+      version: '1.3.6',
+      description: 'AI Load-Balancing & Failover Architecture',
+      changes: [
+        'OpenRouter Failover Protocol: Integrated a model waterfall to ensure system resilience',
+        'Neural Redundancy: Added ChatGPT-4o-mini and Gemini Flash as tactical backups',
+        'AI Utility Layer Refactor: Centralized all AI calling logic for cleaner error recovery'
+      ]
+    },
     {
       version: '1.3.5',
       description: 'Neural Gemini & Performance Tuning',
@@ -152,7 +173,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
               SYSTEM_LOGS
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              DEPLOYMENT_HISTORY :: v1.3.5
+              DEPLOYMENT_HISTORY :: v1.3.7
             </p>
           </div>
         </motion.div>
@@ -172,7 +193,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
               <div>
                 <h2 className="text-lg font-bold text-white mb-2 uppercase tracking-wider">Evolution Registry</h2>
                 <p className="text-white/90 text-sm leading-relaxed text-justify">
-                  Official registry of all system updates and patches applied to the FlashLearn core environment.
+                  FlashLearn: AI-Powered Adaptive Learning Ecosystem (v1.3.7)
                   Each entry documents neural optimizations, UI refactorings, and infrastructure stability patches.
                   Stay updated on project progression.
                 </p>
