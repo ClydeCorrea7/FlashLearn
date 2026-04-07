@@ -109,7 +109,7 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
       
       if (isLogin) {
         // Sign in with Supabase
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
@@ -118,6 +118,12 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
           throw new Error(signInError.message);
         }
 
+        result = {
+          name: signInData.user?.user_metadata?.name || 'Learner',
+          email: formData.email
+        };
+      } else {
+        // Sign up with Supabase
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -139,7 +145,9 @@ export const SimpleAuthScreen: React.FC<SimpleAuthScreenProps> = ({ onAuthSucces
         };
       }
       
-      onAuthSuccess(result);
+      if (result) {
+        onAuthSuccess(result);
+      }
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message || 'Authentication failed');

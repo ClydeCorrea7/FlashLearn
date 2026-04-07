@@ -65,15 +65,52 @@ export const NotesPage: React.FC<NotesPageProps> = ({ onBack, isAuthenticated = 
           examples_toggle: examplesToggle ? 'Include Examples' : 'No Examples'
         })
       });
+      
       if (data.notes && Array.isArray(data.notes)) {
-        generationCache.set(cacheKey, data.notes);
-        setGeneratedNotes(data.notes);
+        // SUPER-ROBUST Master Normalizer (Handles Case Sensitivity & Type Mismatch)
+        const normalizedNotes = data.notes.map((n: any) => {
+          // 1. Case-insensitive key lookup helper
+          const getVal = (aliases: string[]) => {
+            const keys = Object.keys(n);
+            for (const alias of aliases) {
+              const foundKey = keys.find(k => k.toLowerCase() === alias.toLowerCase());
+              if (foundKey && n[foundKey]) return n[foundKey];
+            }
+            return null;
+          };
+
+          // 2. Ensuring Array type helper
+          const toArr = (val: any) => {
+            if (Array.isArray(val)) return val;
+            if (typeof val === 'string' && val.trim()) return [val]; // Convert string to single-item array
+            return [];
+          };
+
+          return {
+            title: getVal(['title', 'topic', 'name', 'subject']) || "Unknown Topic",
+            definition: getVal(['definition', 'def', 'meaning', 'summary']) || "",
+            description: toArr(getVal(['description', 'details', 'points', 'content', 'bullets', 'breakdown'])),
+            explanation: getVal(['explanation', 'intuition', 'concept', 'analysis', 'rationale', 'deepdive']) || "",
+            examples: toArr(getVal(['examples', 'cases', 'applications', 'utility', 'instances'])),
+            keywords: toArr(getVal(['keywords', 'tags', 'terminology', 'concepts', 'terms']))
+          };
+        });
+        
+        generationCache.set(cacheKey, normalizedNotes);
+        setGeneratedNotes(normalizedNotes);
       } else {
-        throw new Error('Invalid notes format received');
+        throw new Error('Invalid notes format received from neural link');
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'An error occurred during generation');
+      console.error("Neural Sync Error:", err);
+      const msg = err.message || "";
+      if (msg.includes("404")) {
+        setError("Neural connection point (404) not found. Contact administrator.");
+      } else if (msg.includes("Failed to fetch")) {
+        setError("Network gateway timeout. Please check your connection.");
+      } else {
+        setError(`Neural Sync Interrupted: ${msg}`);
+      }
     } finally {
       setIsGenerating(false);
     }

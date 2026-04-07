@@ -433,18 +433,23 @@ function App() {
       // Create deck in Supabase with preferred mode
       const deck = await supabaseOps.createDeck(title, description, cards, preferredMode);
 
-      // Format deck for local state
+      // Format deck for local state using real database cards
       const formattedDeck: Deck = {
         id: deck.id,
         title: deck.title,
         description: deck.description || '',
-        cards: cards.map((card, index) => ({
-          id: `${deck.id}_${index}_${Date.now()}`,
+        cards: deck.cards.map((card) => ({
+          id: card.id,
           front: card.front,
           back: card.back,
-          mastered: false,
+          mastered: card.mastered,
+          strength_score: card.strength_score,
+          last_reviewed: card.last_reviewed,
+          next_review_due: card.next_review_due,
+          total_attempts: card.total_attempts,
+          correct_attempts: card.correct_attempts
         })),
-        cardCount: cards.length,
+        cardCount: deck.cards.length,
         masteredCount: 0,
         preferredMode: preferredMode,
         type: preferredMode,

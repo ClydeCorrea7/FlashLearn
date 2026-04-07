@@ -682,14 +682,98 @@ app.post('/ai/generate-follow-up', async (c: Context) => {
 app.post('/ai/generate-mcq', async (c: Context) => {
   try {
     const { card } = await c.req.json();
-    const prompt = `Based on this flashcard, generate EXACTLY 3 plausible distractors for a Multiple Choice Question.
+    const systemPrompt = `You are an expert exam question designer.
+
+Your task is to generate high-quality MCQs where the correct answer is NOT obvious.
+
+---
+
+# 🎯 CORE OBJECTIVE
+
+Ensure ALL answer options (the correct answer and the distractors you generate):
+- Have similar length
+- Have similar structure
+- Look equally plausible
+
+The user should NOT be able to guess the answer based on:
+- length
+- detail
+- formatting
+
+---
+
+# 🚨 CRITICAL RULES
+
+## 1. LENGTH PARITY (VERY IMPORTANT)
+
+- If the correct answer is long → ALL distractors must be long
+- If the correct answer is short → ALL distractors must be short
+
+DO NOT create short distractors for a long correct answer.
+
+---
+
+## 2. STRUCTURE MATCHING
+
+If correct answer includes:
+- multiple clauses
+- technical terms
+- explanation
+
+Then distractors MUST ALSO:
+- include similar structure
+- include technical language
+- sound equally detailed
+
+---
+
+## 3. PLAUSIBILITY
+
+Distractors must:
+- sound correct at first glance
+- be conceptually close to the correct answer
+- contain subtle mistakes (not obvious nonsense)
+
+---
+
+## 4. AVOID OBVIOUS WRONG OPTIONS
+
+DO NOT generate:
+- overly short answers
+- vague statements
+- unrelated concepts
+
+---
+
+## 5. CONSISTENCY CHECK
+
+Before finalizing:
+- Compare all options
+- Ensure they look equally strong
+
+If one stands out → rewrite
+
+---
+
+# 🎯 FINAL RESULT
+
+The MCQ should feel like:
+- all options are believable  
+- user must THINK to answer  
+- no visual clues reveal the answer`;
+
+    const prompt = `Based on this flashcard, generate EXACTLY 3 high-quality distractors for a Multiple Choice Question.
+
 Question: ${card.front}
 Correct Answer: ${card.back}
+
+Remember: ALL distractors MUST match the length and structure of "${card.back}" exactly.
+
 Return ONLY JSON: {"distractors": ["...", "...", "..."]}`;
 
     const content = await callAIWaterfall({
       messages: [
-        { role: 'system', content: 'You are a professional educational content generator. Respond in JSON.' },
+        { role: 'system', content: systemPrompt + '\n\nRespond ONLY in valid JSON.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' }
@@ -745,11 +829,148 @@ app.post('/ai/dynamic/evaluate', async (c: Context) => {
 app.post('/ai/generate-notes', async (c: Context) => {
   try {
     const { subject_context, topics, tone, examples_toggle } = await c.req.json();
-    const prompt = `Generate structured notes for topics: ${topics.join(', ')}. Context: ${subject_context}. Tone: ${tone}. Examples: ${examples_toggle}. Return valid JSON array of objects.`;
+    const topicsStr = Array.isArray(topics) ? topics.join(', ') : (topics || '');
+    const prompt = `You are an expert academic content generator.
+
+Your task is to generate structured study notes in STRICT JSON format.
+
+---
+
+# 🎯 CORE OBJECTIVE
+
+- Generate complete notes for ALL topics
+- Ensure NO section is empty
+- Ensure consistent structure across ALL topics
+- Make output 100% machine-parseable
+
+---
+
+# 🧠 INPUT
+
+Subject: ${subject_context}  
+Topics: ${topicsStr}  
+Tone: ${tone}  
+Examples: ${examples_toggle}
+
+---
+
+# 🚨 CRITICAL RULES (NON-NEGOTIABLE)
+
+## 1. OUTPUT FORMAT (STRICT JSON ONLY)
+
+Return ONLY valid JSON. 
+
+DO NOT include:
+- explanations outside JSON
+- markdown
+- headings
+- extra text
+
+---
+
+## 2. REQUIRED STRUCTURE
+
+Return an ARRAY of objects:
+
+[
+  {
+    "topic": "Topic Name",
+
+    "definition": "Clear, formal academic definition. MUST NOT be empty.",
+
+    "description": [
+      "Point 1",
+      "Point 2",
+      "Point 3",
+      "Point 4",
+      "Point 5"
+    ],
+
+    "explanation": "Clear explanation. If playful tone, make it conversational. MUST NOT be empty.",
+
+    "examples": [
+      "Example 1",
+      "Example 2"
+    ],
+
+    "keywords": [
+      "keyword1",
+      "keyword2"
+    ]
+  }
+]
+
+---
+
+## 3. NO EMPTY FIELDS (VERY IMPORTANT)
+
+- definition MUST NOT be empty  
+- description MUST contain at least 5 points  
+- explanation MUST NOT be empty  
+- examples MUST contain at least 2 items (if enabled)
+
+If unsure → GENERATE BEST POSSIBLE CONTENT  
+DO NOT leave fields empty
+
+---
+
+## 4. DESCRIPTION FORMAT
+
+- Each item must be a full sentence  
+- No symbols like %, æ, etc  
+- Clean, readable text  
+
+---
+
+## 5. TONE CONTROL
+
+- Definition → ALWAYS professional  
+- Description → structured  
+- Explanation → tone applies here  
+
+---
+
+## 6. SUBJECT CONTEXT
+
+All content MUST stay within the given subject.
+
+---
+
+## 7. FAILURE PREVENTION
+
+If you cannot follow JSON format:
+→ DO NOT respond
+
+If any field is empty:
+→ REWRITE before responding
+
+---
+
+# 🔍 SELF-CHECK BEFORE OUTPUT
+
+Verify:
+
+- Is this valid JSON?
+- Does every topic have ALL fields filled?
+- Are there at least 5 description points?
+- Are definition & explanation non-empty?
+
+If ANY answer is NO → FIX before output
+
+---
+
+# 🎯 FINAL RESULT
+
+Output must be:
+
+- fully structured  
+- consistent  
+- complete  
+- ready for direct JSON.parse()`;
 
     const content = await callAIWaterfall({
       messages: [
-        { role: 'system', content: 'You are an expert academic content writer. Respond ONLY with valid JSON.' },
+        { role: 'system', content: 'You are a neural content generator. You provide massive amounts of detailed technical data in JSON format. You NEVER skip any fields and always prioritize intellectual depth.' },
         { role: 'user', content: prompt }
       ],
       max_tokens: 4000
@@ -769,6 +990,15 @@ app.post('/ai/generate-notes', async (c: Context) => {
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
+});
+
+// Explicit Route Aliases for Gateway compatibility
+const FUNCTION_NAME = 'make-server-bc46df65';
+app.post(`/${FUNCTION_NAME}/ai/generate-notes`, async (c) => {
+  // Transfer control to the main handler
+  const handler = app.routes.find(r => r.path === '/ai/generate-notes' && r.method === 'POST')?.handler;
+  if (handler) return handler(c, async () => {});
+  return c.json({ error: 'Handler not found' }, 404);
 });
 
 const routes = app.routes;

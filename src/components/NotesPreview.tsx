@@ -41,7 +41,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
       </motion.div>
       
       <div className="space-y-12">
-        {notes.map((topic, index) => (
+        {notes.filter(t => t && typeof t === 'object').map((topic, index) => (
           <motion.div 
             key={index}
             initial={{ opacity: 0, y: 30 }}
@@ -77,7 +77,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                   </div>
                   <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 leading-relaxed text-slate-300 text-[15px] font-medium italic relative">
                     <div className="absolute inset-y-6 left-0 w-[2px] bg-[var(--neon-blue)] rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                    {topic.definition}
+                    {topic.definition || "No definition provided."}
                   </div>
                 </div>
                 
@@ -87,7 +87,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                     Neural Breakdown
                   </label>
                   <div className="space-y-5 pl-1">
-                    {topic.description.map((desc, i) => {
+                    {Array.isArray(topic.description) && topic.description.length > 0 ? topic.description.map((desc, i) => {
                       if (typeof desc === 'string') {
                         return (
                           <div key={i} className="flex gap-5 group/item">
@@ -95,20 +95,33 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                             <span className="text-slate-400 group-hover:text-slate-200 transition-colors leading-relaxed tracking-wide text-[14px]">{desc}</span>
                           </div>
                         );
-                      } else if (desc.subPoint) {
+                      } else if (desc && typeof desc === 'object' && 'subPoint' in desc) {
                         return (
                           <div key={i} className="ml-11 space-y-3.5 border-l border-white/5 pl-6 py-1">
-                            {desc.subPoint.map((sub, j) => (
+                            {Array.isArray(desc.subPoint) && desc.subPoint.map((sub, j) => (
                               <div key={j} className="flex gap-3 items-center text-left">
                                 <div className="w-1 h-1 rounded-full bg-slate-700 group-hover:bg-[var(--neon-blue)]/40 transition-colors" />
-                                <span className="text-xs font-medium text-slate-500 leading-relaxed italic">{sub}</span>
+                                <span className="text-xs font-medium text-slate-500 leading-relaxed italic">
+                                  {typeof sub === 'string' ? sub : (typeof sub === 'object' ? ((sub as any).text || (sub as any).content || JSON.stringify(sub)) : '')}
+                                </span>
                               </div>
                             ))}
                           </div>
                         );
+                      } else if (desc && typeof desc === 'object') {
+                        // General point as object recovery
+                        const text = (desc as any).text || (desc as any).point || (desc as any).content || JSON.stringify(desc);
+                        return (
+                          <div key={i} className="flex gap-5 group/item">
+                            <span className="text-[var(--neon-blue)] font-black text-[10px] mt-1.5 shrink-0 opacity-40 group-hover/item:opacity-100 transition-opacity">0{i + 1}</span>
+                            <span className="text-slate-400 group-hover:text-slate-200 transition-colors leading-relaxed tracking-wide text-[14px]">{text}</span>
+                          </div>
+                        );
                       }
                       return null;
-                    })}
+                    }) : (
+                      <p className="text-xs text-slate-600 italic pl-6 opacity-60">Complete schematic data unavailable for this topic node.</p>
+                    )}
                   </div>
                 </div>
                 
@@ -119,7 +132,7 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                            <Lightbulb className="w-3.5 h-3.5" />
                            Intuition
                         </label>
-                        <p className="text-slate-400 text-sm leading-relaxed italic opacity-80">{topic.explanation}</p>
+                        <p className="text-slate-400 text-sm leading-relaxed italic opacity-80">{topic.explanation || "Primary conceptual link not established."}</p>
                     </div>
 
                     <div className="space-y-4">
@@ -127,21 +140,23 @@ export const NotesPreview: React.FC<NotesPreviewProps> = ({
                            Pragmatic Use-Cases
                         </label>
                         <ul className="space-y-3 list-none p-0 m-0">
-                            {topic.examples.map((ex, i) => (
+                            {Array.isArray(topic.examples) && topic.examples.length > 0 ? topic.examples.map((ex, i) => (
                                 <li key={i} className="text-xs text-slate-500 bg-white/[0.01] p-3 rounded-xl border border-white/5 hover:border-white/10 transition-colors flex gap-3 text-left">
                                     <span className="text-[var(--neon-purple)] font-black">»</span>
-                                    {ex}
+                                    {typeof ex === 'string' ? ex : (typeof ex === 'object' && ex !== null ? ((ex as any).title || (ex as any).description || (ex as any).text || JSON.stringify(ex)) : '')}
                                 </li>
-                            ))}
+                            )) : (
+                                <p className="text-[10px] text-slate-600 italic pl-1 opacity-60">No specific instances detected.</p>
+                            )}
                         </ul>
                     </div>
                 </div>
                 
-                {topic.keywords && topic.keywords.length > 0 && (
+                {Array.isArray(topic.keywords) && topic.keywords.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-6 border-t border-white/5 mt-2">
                     {topic.keywords.map((kw, i) => (
                       <span key={i} className="px-3 py-1 bg-white/[0.03] text-[9px] font-black rounded-lg border border-white/5 text-slate-600 uppercase tracking-widest hover:text-[var(--neon-blue)] hover:border-[var(--neon-blue)]/20 transition-all cursor-default">
-                        # {kw}
+                        # {typeof kw === 'string' ? kw : (typeof kw === 'object' && kw !== null ? (kw as any).text || (kw as any).word || JSON.stringify(kw) : '')}
                       </span>
                     ))}
                   </div>

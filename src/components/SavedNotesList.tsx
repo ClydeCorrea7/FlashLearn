@@ -104,29 +104,27 @@ export const generatePDF = (subject: string, notes: NoteTopic[]) => {
       // 2. Description (Deep Point System)
       if (yOffset > 240) { doc.addPage(); yOffset = 25; }
       yOffset += drawSectionLabel('Description', yOffset);
-      note.description.forEach(desc => {
-        if (typeof desc === 'string') {
-          // Clean the text and ensure it starts with a single bullet
-          const cleanText = desc.replace(/^[•◦\-\*\s]+/, '').trim();
-          const itemText = `• ${cleanText}`;
-          
-          // Use writeBodyText but handle the return value to add extra rhythmic spacing
-          const heightAdded = writeBodyText(itemText, yOffset, 12.5, 'helvetica', 'normal', deepSlate);
-          yOffset += heightAdded + 3; // Extra padding between bullets for breathability
-          
-          if (yOffset > 275) { doc.addPage(); yOffset = 25; }
-        }
-      });
+      if (Array.isArray(note.description)) {
+        note.description.forEach(desc => {
+          if (typeof desc === 'string') {
+            const cleanText = desc.replace(/^[•◦\-\*\s]+/, '').trim();
+            const itemText = `• ${cleanText}`;
+            const heightAdded = writeBodyText(itemText, yOffset, 12.5, 'helvetica', 'normal', deepSlate);
+            yOffset += heightAdded + 3;
+            if (yOffset > 275) { doc.addPage(); yOffset = 25; }
+          }
+        });
+      }
       yOffset += 4;
 
       // 3. Explanation (Intuition Block)
       if (yOffset > 240) { doc.addPage(); yOffset = 25; }
       yOffset += drawSectionLabel('Explanation', yOffset, neonPurple);
-      yOffset += writeBodyText(note.explanation, yOffset, 13, 'helvetica', 'italic', lightSlate);
+      yOffset += writeBodyText(note.explanation || '', yOffset, 13, 'helvetica', 'italic', lightSlate);
       yOffset += 8;
 
       // 4. Examples (Domain-Specific)
-      if (note.examples && note.examples.length > 0) {
+      if (Array.isArray(note.examples) && note.examples.length > 0) {
         if (yOffset > 240) { doc.addPage(); yOffset = 25; }
         yOffset += drawSectionLabel('Real-world Examples', yOffset);
         note.examples.forEach(ex => {
@@ -137,7 +135,7 @@ export const generatePDF = (subject: string, notes: NoteTopic[]) => {
       }
 
       // 5. Keywords
-      if (note.keywords && note.keywords.length > 0) {
+      if (Array.isArray(note.keywords) && note.keywords.length > 0) {
         if (yOffset > 260) { doc.addPage(); yOffset = 25; }
         drawSectionLabel('Technical Keywords', yOffset, lightSlate);
         yOffset += 8;

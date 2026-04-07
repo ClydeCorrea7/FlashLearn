@@ -19,12 +19,24 @@ interface ChangelogScreenProps {
   onBack: () => void;
 }
 
-export const APP_VERSION = '1.3.4';
+export const APP_VERSION = '1.3.5';
 
 export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
   const [openVersion, setOpenVersion] = useState<string | null>(APP_VERSION);
 
   const releases = [
+    {
+      version: '1.3.5',
+      description: 'Neural Stability & Data Healing',
+      changes: [
+        'Neural Sync Hardening: Implemented a Super-Transformer normalization layer for robust AI data extraction',
+        'Case-Insensitive Key Discovery: Resolved issue where capitalized AI keys (e.g., "Definition") caused blank fields',
+        'Type-Aware Rendering: Added object recovery logic to render text even if the AI returns JSON objects instead of strings',
+        'Explicit Gateway Routing: Hardcoded route aliases for the Neural Notes module to ensure 100% connectivity',
+        'Structural Overhaul: Integrated a "Master-Level" prompt to enforce dense, non-empty academic generation',
+        'Defensive PDF Export: Hardened generatePDF logic with recursive array checks to prevent export crashes'
+      ]
+    },
     {
       version: '1.3.4',
       description: 'Neural Presets & Visual Sync',
@@ -141,7 +153,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
               SYSTEM_LOGS
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              DEPLOYMENT_HISTORY :: v1.3.4
+              DEPLOYMENT_HISTORY :: v1.3.5
             </p>
           </div>
         </motion.div>
@@ -173,7 +185,7 @@ export const ChangelogScreen: React.FC<ChangelogScreenProps> = ({ onBack }) => {
         {/* Status indicator bar */}
         <div className="mb-8 font-mono text-[10px] p-2 bg-black/40 border-l-2 border-[var(--neon-cyan)] flex justify-between items-center overflow-hidden whitespace-nowrap uppercase tracking-widest">
           <div className="flex gap-4">
-            <span className="text-[var(--neon-cyan)] animate-pulse font-bold">LAST_DEPLOY: 2026.04.04</span>
+            <span className="text-[var(--neon-cyan)] animate-pulse font-bold">LAST_DEPLOY: 2026.04.07</span>
             <span className="text-foreground/40 font-bold">BRANCH: PRODUCTION</span>
             <span className="text-foreground/40 font-bold">ENV: SUPABASE_LIVE</span>
           </div>

@@ -80,7 +80,7 @@ export const ManualScreen: React.FC<ManualScreenProps> = ({ onBack }) => {
               SYSTEM_MANUAL
             </h1>
             <p className="text-[8px] font-['Press_Start_2P'] text-muted-foreground mt-1 tracking-widest">
-              PROTOCOL_VERSION :: 1.0.5
+              PROTOCOL_VERSION :: 1.1.0
             </p>
           </div>
         </motion.div>

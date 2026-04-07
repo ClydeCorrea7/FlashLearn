@@ -123,7 +123,7 @@ export async function createDeck(
   description?: string,
   cards?: { front: string; back: string }[],
   preferredMode: LearningMode = 'static'
-): Promise<Deck> {
+): Promise<DeckWithCards> {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Not authenticated');
 
@@ -148,7 +148,8 @@ export async function createDeck(
     throw new Error(deckError.message);
   }
 
-  // If cards are provided, insert them
+  // If cards are provided, insert them and get their real IDs
+  let finalCards: Card[] = [];
   if (cards && cards.length > 0) {
     const cardsData = cards.map(card => ({
       deck_id: deck.id,
@@ -157,18 +158,20 @@ export async function createDeck(
       mastered: false
     }));
 
-    const { error: cardsError } = await supabase
+    const { data: insertedCards, error: cardsError } = await supabase
       .from('cards')
-      .insert(cardsData);
+      .insert(cardsData)
+      .select();
 
     if (cardsError) {
       console.error('Error creating cards:', cardsError);
-      // Deck was created, but cards failed - still return deck
       console.warn('Deck created but cards failed to save');
+    } else {
+      finalCards = insertedCards || [];
     }
   }
 
-  return deck;
+  return { ...deck, cards: finalCards };
 }
 
 /**
